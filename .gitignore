@@ -1,0 +1,22 @@
+# IntelliJ 관련 (공동 사용 시 포함) 
+.idea/ 
+*.iml 
+ 
+# 빌드 결과물 
+/target/ 
+bin/ 
+/build/ 
+ 
+# 로그파일 
+*.log 
+ 
+# 운영체제별 불필요 파일 
+.DS_Store 
+Thumbs.db 
+ 
+# 환경 변수 설정 파일 (필요시) 
+*.env 
+application-*.properties 
+application-*.yml 
+pom.xml 
+*.xml 
