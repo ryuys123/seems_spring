@@ -23,8 +23,6 @@ public class QUserEntity extends EntityPathBase<UserEntity> {
 
     public final DateTimePath<java.util.Date> createdAt = createDateTime("createdAt", java.util.Date.class);
 
-    public final StringPath passwordHash = createString("passwordHash");
-
     public final StringPath phone = createString("phone");
 
     public final StringPath profileImage = createString("profileImage");
@@ -36,6 +34,8 @@ public class QUserEntity extends EntityPathBase<UserEntity> {
     public final StringPath userId = createString("userId");
 
     public final StringPath userName = createString("userName");
+
+    public final StringPath userPwd = createString("userPwd");
 
     public QUserEntity(String variable) {
         super(UserEntity.class, forVariable(variable));

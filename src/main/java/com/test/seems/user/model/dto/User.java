@@ -1,12 +1,12 @@
 package com.test.seems.user.model.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.NotBlank;
-import lombok.*;
 import com.test.seems.user.jpa.entity.UserEntity;
-import org.springframework.validation.annotation.Validated;
+import jakarta.validation.constraints.NotBlank;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
 @AllArgsConstructor
@@ -19,7 +19,7 @@ public class User {
     private String userId;           // USER_ID VARCHAR2(255) PRIMARY KEY
     @NotBlank
     private String phone;          // PHONE VARCHAR2(100) NOT NULL
-    private String passwordHash;   // PASSWORD_HASH VARCHAR2(255)
+    private String userPwd;   // USER_PWD VARCHAR2(255)
     @NotBlank
     private String userName;       // USERNAME VARCHAR2(50) NOT NULL
     private String profileImage;   // PROFILE_IMAGE BLOB
@@ -35,7 +35,7 @@ public class User {
         return UserEntity.builder()
                 .userId(userId)
                 .phone(phone)
-                .passwordHash(passwordHash)
+                .userPwd(userPwd)
                 .userName(userName)
                 .profileImage(profileImage)
                 .createdAt(createdAt)
