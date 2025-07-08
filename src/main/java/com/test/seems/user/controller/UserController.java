@@ -1,18 +1,11 @@
 package com.test.seems.user.controller;
 
-import java.io.File;
-import java.sql.Date;
-import java.util.ArrayList;
-
-import lombok.extern.slf4j.Slf4j;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
 import com.test.seems.common.Paging;
 import com.test.seems.common.Search;
 import com.test.seems.user.model.dto.User;
 import com.test.seems.user.model.service.UserService;
-
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -20,15 +13,14 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.bind.support.SessionStatus;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.ModelAndView;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpSession;
+import java.io.File;
+import java.sql.Date;
+import java.util.ArrayList;
 
 @Slf4j
 @RestController
@@ -63,9 +55,9 @@ public class UserController {
         log.info("/signup : " + user);
 
         // 패스워드 암호화 처리
-        String encodePwd = bcryptPasswordEncoder.encode(user.getPasswordHash());
+        String encodePwd = bcryptPasswordEncoder.encode(user.getUserPwd());
         log.info("암호화된 패스워드 : " + encodePwd);
-        user.setPasswordHash(encodePwd);
+        user.setUserPwd(encodePwd);
 
         // 사진 파일 첨부가 있을 경우, 저장 폴더 지정 ---------------------------------------------
         String savePath = request.getSession().getServletContext().getRealPath("resources/photoFiles");
@@ -144,17 +136,17 @@ public class UserController {
         // 회원 정보 수정 처리용 메소드
         @PostMapping(value = "/uupdate")
         public String userUpdateMethod (User user, Model model, HttpServletRequest request,
-                @RequestParam("profileImage") MultipartFile ufile, @RequestParam("originalPwd") String originalPasswordHash,
+                @RequestParam("profileImage") MultipartFile ufile, @RequestParam("originalPwd") String originalUserPwd,
                 @RequestParam("ofile") String originalFilename){
             log.info("uupdate.do : " + user);
 
             // 암호가 전송이 왔다면 (새로운 암호가 전송온 경우임)
-            if (user.getPasswordHash() != null && user.getPasswordHash().length() > 0) {
+            if (user.getUserPwd() != null && user.getUserPwd().length() > 0) {
                 // 패스워드 암호화 처리함
-                user.setPasswordHash(this.bcryptPasswordEncoder.encode(user.getPasswordHash()));
-                log.info("변경된 암호 확인 : " + user.getPasswordHash() + ", length : " + user.getPasswordHash().length());
+                user.setUserPwd(this.bcryptPasswordEncoder.encode(user.getUserPwd()));
+                log.info("변경된 암호 확인 : " + user.getUserPwd() + ", length : " + user.getUserPwd().length());
             } else { // 새로운 암호가 전송오지 않았다면, 현재 member.userPwd = null 임 => 쿼리문에 적용되면 기존 암호 지워짐
-                user.setPasswordHash(originalPasswordHash); // 원래 패스워드 기록함
+                user.setUserPwd(originalUserPwd); // 원래 패스워드 기록함
             }
 
             // 사진 파일 첨부가 있을 경우, 저장 폴더 지정 ---------------------------------------------

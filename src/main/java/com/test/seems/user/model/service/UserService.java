@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +22,9 @@ public class UserService {
     
     @Autowired
     private final UserRepository userRepository;
+    
+    @Autowired
+    private BCryptPasswordEncoder bcryptPasswordEncoder;
 
     public boolean selectCheckId(String userId) {
         //기존 가입회원과 아이디 중복 검사용
@@ -38,6 +42,13 @@ public class UserService {
 
     @Transactional
     public User insertUser(User user) {
+        // ✅ 회원가입 시 비밀번호를 BCrypt로 해싱
+        if (user.getUserPwd() != null && !isBCryptHash(user.getUserPwd())) {
+            String hashedPassword = bcryptPasswordEncoder.encode(user.getUserPwd());
+            user.setUserPwd(hashedPassword);
+            log.info("회원가입 - 비밀번호 해싱 완료: userId={}", user.getUserId());
+        }
+        
         //jpa 제공 메소드 사용
         //save(entity) : entity => 실패하면 null 리턴
         return userRepository.save(user.toEntity()).toDto();
@@ -45,6 +56,16 @@ public class UserService {
 
     @Transactional
     public User updateUser(User user) {
+        // ✅ 비밀번호 변경 시에도 해싱 처리
+        UserEntity existingUser = userRepository.findByUserId(user.getUserId());
+        if (existingUser != null && user.getUserPwd() != null && 
+            !isBCryptHash(user.getUserPwd()) && 
+            !user.getUserPwd().equals(existingUser.getUserPwd())) {
+            String hashedPassword = bcryptPasswordEncoder.encode(user.getUserPwd());
+            user.setUserPwd(hashedPassword);
+            log.info("비밀번호 변경 - 해싱 완료: userId={}", user.getUserId());
+        }
+        
         //jpa 제공 메소드 사용
         return userRepository.save(user.toEntity()).toDto();
     }
@@ -132,5 +153,9 @@ public class UserService {
         return toList(userRepository.findByStatus(keyword, pageable));
     }
 
+    // BCrypt 해싱 형태 확인 메서드
+    private boolean isBCryptHash(String password) {
+        return password != null && password.startsWith("$2a$");
+    }
 
 }

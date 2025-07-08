@@ -18,15 +18,14 @@ import java.util.GregorianCalendar;
 public class UserEntity {
     
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "USER_ID", nullable = false, length = 255)
     private String userId;
     
     @Column(name = "PHONE", nullable = false, length = 100)
     private String phone;
     
-    @Column(name = "PASSWORD_HASH", length = 255)
-    private String passwordHash;
+    @Column(name = "USER_PWD", length = 255)
+    private String userPwd;
     
     @Column(name = "USERNAME", nullable = false, length = 50)
     private String userName;
@@ -57,7 +56,7 @@ public class UserEntity {
         return User.builder()
                 .userId(userId)
                 .phone(phone)
-                .passwordHash(passwordHash)
+                .userPwd(userPwd)
                 .userName(userName)
                 .profileImage(profileImage)
                 .createdAt(createdAt)
