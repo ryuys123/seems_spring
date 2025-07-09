@@ -135,11 +135,11 @@ public class SecurityConfig implements WebMvcConfigurer {
                         // .png 파일은 인증없이 접근 허용함
                         .requestMatchers("/*.png").permitAll()
                         // 로그인, 토큰 재발급, 회원가입도 인증없이 접근 허용함
-                        .requestMatchers("/", "/login", "/reissue", "/signup", "/test").permitAll()
+                        .requestMatchers("/", "/login", "/reissue", "/signup", "/test", "/admin").permitAll()
                         // 로그아웃은 인증된 사용자만 요청 가능 (인가 확인 필요)
                         .requestMatchers("/logout").authenticated()
                         // 관리자 전용 서비스인 경우 ROLE_ADMIN 권한 확인 필요함
-                        .requestMatchers("/admin/**").hasRole("ADMIN")
+//                        .requestMatchers("/admin/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/notice/delete/*").hasAnyRole("ADMIN")  // 공지 삭제는 ADMIN 만 허용
                         // 나머지 모든 요청은 인증 확인 필요함 (로그인해야 요청할 수 있는 서비스들)
                         .anyRequest().authenticated()
