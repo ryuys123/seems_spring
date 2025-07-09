@@ -1,6 +1,6 @@
 package com.test.seems.notice.jpa.repository;
 
-// JPA 는 Entity 와 Repository 를 만들어서 사용하는 기술임
+// JPA 는 Entity 와 Repository 를 만들어서 사용하는 기술임.
 // JPA 의 Repository 는 반드시 JpaRepository 인터페이스를 상속받아서 후손 인터페이스로 만듦
 // 제네릭스는 반드시 <엔티티클래스명, @id 프로퍼티의 클래스자료형> 명시함
 // MyBatis 의 SqlSessionTemplate 과 같은 역할을 수행함, Mapper 인터페이스와 같음
@@ -57,3 +57,4 @@ public interface NoticeRepository extends JpaRepository<NoticeEntity, Integer> {
 *  findAll(Pageable pageable)   => select * from 테이블명 where rownum between startrow and endrow
 *  existsById(id)
 * */
+

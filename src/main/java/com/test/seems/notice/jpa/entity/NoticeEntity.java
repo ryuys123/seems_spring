@@ -13,7 +13,7 @@ import java.sql.Date;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-@Table(name= "TB_NOTICES")  //매핑할 테이블 이름 지정함, NOTICE 테이블을 자동으로 만들어 주기도 하는 어노테이션임
+@Table(name= "TB_NOTICES")  //매핑할 테이블 이름 지정함, NOTICE 테이블을 자동으로 만들어 주기도 하는 어노테이션임.
 @Entity     // jpa 가 관리함, db 테이블과 dto 클래스를 매핑하기 위해 필요함
 public class NoticeEntity {
     @Id     // jpa 가 엔티티를 관리할 때 식별할 id 생성 용도의 어노테이션임
