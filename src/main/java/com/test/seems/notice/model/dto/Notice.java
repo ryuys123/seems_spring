@@ -21,7 +21,7 @@ public class Notice {
 	@NotBlank
 	private String title;
 	@NotBlank
-	private String userId;
+	private String userid;
 	@NotBlank
 	private String content;
 	private int readCount;
@@ -39,7 +39,7 @@ public class Notice {
 		return NoticeEntity.builder()
 				.noticeNo(noticeNo)
 				.title(title)
-				.userId(userId)
+				.userid(userid)
 				.content(content)
 				.readCount(readCount)
 				.originalFilePath(originalFilePath)

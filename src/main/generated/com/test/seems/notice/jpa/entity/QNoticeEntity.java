@@ -19,25 +19,25 @@ public class QNoticeEntity extends EntityPathBase<NoticeEntity> {
 
     public static final QNoticeEntity noticeEntity = new QNoticeEntity("noticeEntity");
 
+    public final StringPath content = createString("content");
+
     public final DatePath<java.sql.Date> impEndDate = createDate("impEndDate", java.sql.Date.class);
 
     public final StringPath importance = createString("importance");
 
-    public final StringPath noticeContent = createString("noticeContent");
-
     public final DatePath<java.sql.Date> noticeDate = createDate("noticeDate", java.sql.Date.class);
 
     public final NumberPath<Integer> noticeNo = createNumber("noticeNo", Integer.class);
-
-    public final StringPath noticeTitle = createString("noticeTitle");
-
-    public final StringPath noticeWriter = createString("noticeWriter");
 
     public final StringPath originalFilePath = createString("originalFilePath");
 
     public final NumberPath<Integer> readCount = createNumber("readCount", Integer.class);
 
     public final StringPath renameFilePath = createString("renameFilePath");
+
+    public final StringPath title = createString("title");
+
+    public final StringPath userid = createString("userid");
 
     public QNoticeEntity(String variable) {
         super(NoticeEntity.class, forVariable(variable));
