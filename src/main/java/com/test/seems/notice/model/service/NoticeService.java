@@ -57,7 +57,7 @@ public class NoticeService  {
 		// jpa 제공하는 메소드 없음 => NoticeRepository 에 메소드 추가 작성함
 		/* 실행 sql 문 :
 		*  	SELECT *
-			FROM (SELECT ROWNUM RNUM, NOTICENO, NOTICETITLE, NOTICEDATE
+			FROM (SELECT ROWNUM RNUM, NOTICENO, TITLE, NOTICEDATE
 					FROM (SELECT * FROM NOTICE
 							WHERE IMPORTANCE = 'N'
 							ORDER BY NOTICEDATE DESC, NOTICENO DESC))
@@ -112,9 +112,9 @@ public class NoticeService  {
 	public int selectSearchTitleCount(String keyword) {
 		/* sql :
 		* 	select count(*) from notice
-			where noticetitle like '%' || #{ keyword } || '%'
+			where title like '%' || #{ keyword } || '%'
 		* */
-		return noticeRepository.countByNoticeTitleContainingIgnoreCase(keyword);
+		return noticeRepository.countByTitleContainingIgnoreCase(keyword);
 	}
 
 
@@ -123,7 +123,7 @@ public class NoticeService  {
 		* 	select count(*) from notice
 			where noticecontent like '%' || #{ keyword } || '%'
 		* */
-		return noticeRepository.countByNoticeContentContainingIgnoreCase(keyword);
+		return noticeRepository.countByContentContainingIgnoreCase(keyword);
 	}
 
 
@@ -139,35 +139,35 @@ public class NoticeService  {
 	public ArrayList<Notice> selectSearchTitle(String keyword, Pageable pageable) {
 		/* sql :
 			select *
-			from (select rownum rnum, noticeno, noticetitle, noticedate, noticewriter, noticecontent,
+			from (select rownum rnum, noticeno, title, noticedate, noticewriter, noticecontent,
 						original_filepath, rename_filepath, importance, imp_end_date, readcount
 				  from (select * from notice
-						where noticetitle like '%' || #{ keyword } || '%'
+						where title like '%' || #{ keyword } || '%'
 						order by importance desc, noticedate desc, noticeno desc))
 			where rnum between #{ startRow } and #{ endRow }
 		* */
-		return toList(noticeRepository.findByNoticeTitleContainingIgnoreCaseOrderByImportanceDescNoticeDateDescNoticeNoDesc(keyword, pageable));
+		return toList(noticeRepository.findByTitleContainingIgnoreCaseOrderByImportanceDescNoticeDateDescNoticeNoDesc(keyword, pageable));
 	}
 
 
 	public ArrayList<Notice> selectSearchContent(String keyword, Pageable pageable) {
 		/* sql :
 		* 	select *
-			from (select rownum rnum, noticeno, noticetitle, noticedate, noticewriter, noticecontent,
+			from (select rownum rnum, noticeno, title, noticedate, noticewriter, noticecontent,
 						original_filepath, rename_filepath, importance, imp_end_date, readcount
 				  from (select * from notice
 						where noticecontent like '%' || #{ keyword } || '%'
 						order by importance desc, noticedate desc, noticeno desc))
 			where rnum between #{ startRow } and #{ endRow }
 		* */
-		return toList(noticeRepository.findByNoticeContentContainingIgnoreCaseOrderByImportanceDescNoticeDateDescNoticeNoDesc(keyword, pageable));
+		return toList(noticeRepository.findByContentContainingIgnoreCaseOrderByImportanceDescNoticeDateDescNoticeNoDesc(keyword, pageable));
 	}
 
 
 	public ArrayList<Notice> selectSearchDate(LocalDate begin, LocalDate end, Pageable pageable) {
 		/* sql :
 		* 	select *
-			from (select rownum rnum, noticeno, noticetitle, noticedate, noticewriter, noticecontent,
+			from (select rownum rnum, noticeno, title, noticedate, noticewriter, noticecontent,
 						original_filepath, rename_filepath, importance, imp_end_date, readcount
 				  from (select * from notice
 						where noticedate between #{ begin } and #{ end }

@@ -29,14 +29,14 @@ public interface NoticeRepository extends JpaRepository<NoticeEntity, Integer> {
     List<NoticeEntity> findTop3ByImportanceOrderByNoticeDateDescNoticeNoDesc(String importance);
 
     //제목 키워드 검색 관련 목록 갯수 조회용
-    int countByNoticeTitleContainingIgnoreCase(String keyword);
+    int countByTitleContainingIgnoreCase(String keyword);
     //제목 검색 목록 조회용 (페이지 적용)
-    Page<NoticeEntity> findByNoticeTitleContainingIgnoreCaseOrderByImportanceDescNoticeDateDescNoticeNoDesc(String keyword, Pageable pageable);
+    Page<NoticeEntity> findByTitleContainingIgnoreCaseOrderByImportanceDescNoticeDateDescNoticeNoDesc(String keyword, Pageable pageable);
 
     //내용 키워드 검색 관련 목록 갯수 조회용
-    int countByNoticeContentContainingIgnoreCase(String keyword);
+    int countByContentContainingIgnoreCase(String keyword);
     //내용 검색 목록 조회용 (페이지 적용)
-    Page<NoticeEntity> findByNoticeContentContainingIgnoreCaseOrderByImportanceDescNoticeDateDescNoticeNoDesc(String keyword, Pageable pageable);
+    Page<NoticeEntity> findByContentContainingIgnoreCaseOrderByImportanceDescNoticeDateDescNoticeNoDesc(String keyword, Pageable pageable);
 
     //날짜 검색 관련 목록 갯수 조회용
     int countByNoticeDateBetween(LocalDate begin, LocalDate end);
