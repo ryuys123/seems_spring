@@ -36,11 +36,11 @@ public class NoticeEntity {
     private String originalFilePath;
     @Column(name="RENAME_FILEPATH")
     private String renameFilePath;
-    @Column(name="IMPORTANCE", columnDefinition = "N")
+    @Column(name="IMPORTANCE", columnDefinition = "CHAR(1)")
     private String importance;
     @Column(name="IMP_END_DATE")
     private Date impEndDate;
-    @Column(name="READCOUNT", nullable=false, columnDefinition = "1")
+    @Column(name="READCOUNT", nullable=false)
     private int readCount;
 
     @PrePersist   // jpa 리포지터리로 넘어가기 전에 (sql 에 적용하기 전) 작동되는 어노테이션임

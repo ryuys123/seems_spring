@@ -3,9 +3,12 @@ package com.test.seems;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration; // 추가
+import org.springframework.context.annotation.Bean;
+import org.springframework.web.client.RestTemplate;
 
 //@SpringBootApplication(exclude = {SecurityAutoConfiguration.class}, scanBasePackages = "com.test.seems")
-@SpringBootApplication
+@SpringBootApplication // DataSourceAutoConfiguration 제외
 public class FirstApplication {
 
 	public static void main(String[] args) {
@@ -16,5 +19,10 @@ public class FirstApplication {
 //		Key key = Keys.secretKeyFor(SignatureAlgorithm.HS512);
 //		System.out.println(Base64.getEncoder().encodeToString(key.getEncoded()));
 	}
+
+    @Bean
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
+    }
 
 }
