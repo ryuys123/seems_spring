@@ -3,6 +3,7 @@ package com.test.seems.notice.model.dto;
 import java.sql.Date;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import jakarta.persistence.Column;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -18,31 +19,34 @@ public class Notice {
 	@NotBlank
 	private int noticeNo;
 	@NotBlank
-	private String noticeTitle;
-	@JsonFormat(pattern = "yyyy-MM-dd", timezone = "Asia/Seoul") //날짜시간 직렬화 (Long 정수형 밀리초 출력) 해결 방법임
-	private Date noticeDate;	// 날짜가 Jackson 을 사용시 Date 객체가 직렬화되어서 밀리초로 표시됨
-	private String noticeWriter;
-	private String noticeContent;
+	private String title;
+	@NotBlank
+	private String userId;
+	@NotBlank
+	private String content;
+	private int readCount;
 	private String originalFilePath;
 	private String renameFilePath;
 	private String importance;
 	@JsonFormat(pattern = "yyyy-MM-dd", timezone = "Asia/Seoul")
 	private Date impEndDate;
-	private int readCount;
+	@JsonFormat(pattern = "yyyy-MM-dd", timezone = "Asia/Seoul")
+	private Date noticeDate;
+
 
 	//dto를 entity 로 변환하는 메소드
 	public NoticeEntity toEntity(){
 		return NoticeEntity.builder()
 				.noticeNo(noticeNo)
-				.noticeTitle(noticeTitle)
-				.noticeDate(noticeDate)
-				.noticeWriter(noticeWriter)
-				.noticeContent(noticeContent)
+				.title(title)
+				.userId(userId)
+				.content(content)
+				.readCount(readCount)
 				.originalFilePath(originalFilePath)
 				.renameFilePath(renameFilePath)
 				.importance(importance)
 				.impEndDate(impEndDate)
-				.readCount(readCount)
+				.noticeDate(noticeDate)
 				.build();
 	}
 }
