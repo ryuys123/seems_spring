@@ -29,19 +29,23 @@ public class JWTFilter extends OncePerRequestFilter {
     // 이 필터에서 토큰 확인 안 하고 서비스로 넘기도록 하면 됨
     // 그냥 통과시킬 url 등록 메소드를 추가함
     private boolean isExcludedUrl(String url) {
-        return url.equals("/seems/")
-                || url.equals("/seems/favicon.ico")
+        return url.equals("/")
+                || url.equals("/favicon.ico")
                 || url.startsWith("/seems/login")
                 || url.equals("/seems/notice/*")
                 || url.equals("/seems/faq/*")
-                || url.equals("/seems/test")
+                || url.equals("/seems/user/signup")
+                || url.equals("/seems/user/idchk")
+                || url.startsWith("/seems/api/personality-test/questions")
+                || url.startsWith("/seems/api/personality-test/submit-answers")
+                || url.startsWith("/seems/api/psychological-test/")
                 // 문자열 비교이기 때문에 실제 요청 경로가 /notice/detail/13일 경우,
                 // "/notice/detail/*".equals("/notice/detail/13") → false가 됩니다.
                 // 해결 방법: startsWith()로 경로 시작 여부로 검사
-                || url.equals("/seems/js/**")
+                || url.equals("/js/**")
                 || url.endsWith(".png")
-                || url.equals("/seems/notice/attachments/")  // notice 첨부파일들 등록
-                || url.equals("/seems/payments/request/");
+                || url.equals("/notice/attachments/")  // notice 첨부파일들 등록
+                || url.equals("/payments/request/");
     }
 
 

@@ -5,8 +5,9 @@ import com.test.seems.common.Search;
 import com.test.seems.user.model.dto.User;
 import com.test.seems.user.model.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -21,80 +22,100 @@ import org.springframework.web.servlet.ModelAndView;
 import java.io.File;
 import java.sql.Date;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 @Slf4j
 @RestController
-@CrossOrigin
+@RequiredArgsConstructor
+@CrossOrigin		//리액트 애플리케이션 (포트가 다름)의 요청을 처리하기 위함
 public class UserController {
 
     // 서비스 모델과 연결 처리 (의존성 주입, 자동 연결 처리)
-    @Autowired
-    private UserService userService;
+    private final UserService userService;
 
-    @Autowired
-    private BCryptPasswordEncoder bcryptPasswordEncoder;
+    @Value("${file.upload-dir}")
+    private String uploadDir;
+
+    //관련 객체 생성 관련 config 파일을 만들고 @Bean 으로 등록 처리하고 사용
+    //config.EncoderConfig
+    private final BCryptPasswordEncoder bcryptPasswordEncoder;
 
     // 요청 받아서 서비스 모델쪽으로 전달정보 넘기고 결과받는 메소드 ------------------------------------
 
-    @PostMapping( "/idchk")
+    @PostMapping( "user/idchk")
     public String dupCheckUserIdMethod(@RequestParam("userId") String userId) {
         // 방식1, ResponseBody 에 담아서 문자열 내보내기 방식 사용함 (반환자료형이 String 임)
         boolean result = userService.selectCheckId(userId);
-        return (result == true) ? "ok" : "dup";
+        return (result == false) ? "ok" : "dup";
     }
 
     // 회원 가입 요청 처리용 메소드 (파일 첨부 기능이 있는 form 전송일 때 처리 방식) => 첨부파일은 별도로 전송받도록 처리함
     // 서버상의 파일 저장 폴더 지정을 위해서 request 객체가 필요함
     // 업로드되는 파일은 따로 전송받음 => multipart 방식으로 전송옴 => 스프링이 제공하는 MutipartFile 클래스 사용해서 받음
     // 비밀번호(패스워드) 암호화 처리 기능 추가
-    @PostMapping("/signup")
-    public ResponseEntity<String> userInsertMethod(
+    @PostMapping("user/signup")
+    public ResponseEntity userInsertMethod(
             @ModelAttribute User user,
-            HttpServletRequest request,
-            @RequestParam("profileImage") MultipartFile ufile) {
-        log.info("/signup : " + user);
+            @RequestParam(name="profileImage", required = false) MultipartFile ufile) {
+        log.info("/user/signup : " + user);
 
         // 패스워드 암호화 처리
-        String encodePwd = bcryptPasswordEncoder.encode(user.getUserPwd());
-        log.info("암호화된 패스워드 : " + encodePwd);
-        user.setUserPwd(encodePwd);
+//			String encodePwd = bcryptPasswordEncoder.encode(member.getUserPwd());
+//			member.setUserPwd(encodePwd);
+        user.setUserPwd(bcryptPasswordEncoder.encode(user.getUserPwd()));
+        log.info("after encode : " + user.getUserPwd() + ", length : " + user.getUserPwd().length());
 
-        // 사진 파일 첨부가 있을 경우, 저장 폴더 지정 ---------------------------------------------
-        String savePath = request.getSession().getServletContext().getRealPath("resources/photoFiles");
-        // 서버 엔진이 구동하는 웹애플리케이션(Context)의 루트(webapp) 아래의 "resources/photoFiles" 까지의 경로
-        // 정보를 저장함
+        // 회원가입시 사진 파일첨부가 있을 경우, 저장 폴더 경로 지정 -----------------------------------
+        String savePath = uploadDir + "/photo";
         log.info("savePath : " + savePath);
 
-        // 첨부파일이 있다면 지정 폴더에 저장 처리 ----------------------------
-        if (!ufile.isEmpty()) {
+        File directory = new File(savePath);
+        if(!directory.exists()){
+            directory.mkdirs();
+        }
+
+        // 사진 첨부파일이 있다면
+        if (ufile != null && !ufile.isEmpty()) {
             // 전송온 파일 이름 추출함
-            String originalFilename = ufile.getOriginalFilename();
-            // 여러 회원이 업로드한 사진파일명이 중복될 경우를 대비해서 저장파일명 이름 바꾸기함
+            String fileName = ufile.getOriginalFilename();
+            // 여러 회원이 업로드한 사진파일명이 중복될 경우를 대비해서 저장파일명 이름바꾸기함
             // 바꿀 파일이름은 개발자가 정함
-            // userId 가 기본키(primary key)이므로 중복이 안됨 => userId_profileImage.확장자 형태로 정해봄
-            String renameFilename = user.getUserId() + "_" + originalFilename;
+            // userId 가 기본키이므로 중복이 안됨 => userId_filename 저장형태로 정해봄
+            String renameFileName = user.getUserId() + "_" + fileName;
 
             // 저장 폴더에 저장 처리
-            if (originalFilename != null && originalFilename.length() > 0) {
+            if (fileName != null && fileName.length() > 0) {
                 try {
-                    ufile.transferTo(new File(savePath + "\\" + renameFilename));
+                    // mfile.transferTo(new File(savePath + "\\" + fileName));
+                    // 저장시 바뀐 이름으로 저장 처리함
+                    ufile.transferTo(new File(savePath, renameFileName));
                 } catch (Exception e) {
                     // 첨부파일 저장시 에러 발생
-                    e.printStackTrace(); // 개발자가 볼 정보
-                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("첨부파일 업로드 실패.");
+                    e.printStackTrace();
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
                 }
-            } // if
+            }
 
             // 파일 업로드 정상 처리되었다면
-            user.setProfileImage(renameFilename); // db 테이블에는 변경된 파일명이 기록 저장됨
-        } // 첨부파일이 있다면 --------------------------------------------------------
+            // user.setProfileImage(fileName); //db 저장시에는 원래 이름으로 기록함
+            user.setProfileImage(renameFileName); // db 저장시에는 변경된 이름으로 기록함
+        } // 첨부파일이 있을 때
 
-        // 서비스 모델의 메소드 실행 요청하고 결과받기
-        if (userService.insertUser(user) != null) { // 회원 가입 성공시
-            return new ResponseEntity<>("signup ok", HttpStatus.OK);
-        } else { // 회원 가입 실패시
-            return new ResponseEntity<>("signup fail", HttpStatus.BAD_REQUEST);
+        //가입정보 추가 입력 처리
+        user.setStatus(1);
+        user.setAdminYn("N");
+        log.info("userInsertMethod : " + user);
+
+        try {
+            userService.insertUser(user);
+            return ResponseEntity.status(HttpStatus.OK).build();
+        } catch (Exception e) {
+            log.error("회원가입 오류", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("회원가입 실패");
         }
+
+
     }
 
     // '내 정보 보기' 요청 처리용 메소드
@@ -106,9 +127,9 @@ public class UserController {
      * @RequestParam("전송이름) 자료형 변수명 == request.getParameter("전송이름") 과 같음 이 어노테이션은
      * 메소드 () 안에 사용함
      */
-    @GetMapping("/myinfo") // 전송방식 get 임
-    public String userDetailMethod(@RequestParam("userId") String userId, Model model) {
-        log.info("myinfo.do : " + userId);
+    @GetMapping("user/myinfo") // 전송방식 get 임
+    public ResponseEntity<?> userDetailMethod(@RequestParam("userId") String userId) {
+        log.info("/user/myinfo : " + userId);
 
         // 서비스 모델로 아이디 전달해서, 회원 정보 조회한 결과 리턴받기
         User user = userService.selectUser(userId);
@@ -123,22 +144,28 @@ public class UserController {
                 log.info("사진파일명 확인 : " + user.getProfileImage() + ", " + originalFilename);
             }
 
-            model.addAttribute("user", user);
-            model.addAttribute("ofile", originalFilename);
+            Map<String, Object> responseBody = new HashMap<>();
+            responseBody.put("user", user);
+            responseBody.put("photoFileName", originalFilename);
 
-            return "user/infoPage";
+            return ResponseEntity.ok(responseBody);  // 200 OK + JSON 응답
+
         } else { // 조회 실패시
-            model.addAttribute("message", userId + " 에 대한 회원 정보 조회 실패! 아이디를 다시 확인하세요.");
-            return "common/error";
+            Map<String, String> errorBody = new HashMap<>();
+            errorBody.put("message", userId + " 에 대한 회원 정보 조회 실패! 아이디를 다시 확인하세요.");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorBody);
         }
     }
 
         // 회원 정보 수정 처리용 메소드
-        @PostMapping(value = "/uupdate")
-        public String userUpdateMethod (User user, Model model, HttpServletRequest request,
-                @RequestParam("profileImage") MultipartFile ufile, @RequestParam("originalPwd") String originalUserPwd,
-                @RequestParam("ofile") String originalFilename){
-            log.info("uupdate.do : " + user);
+        @PostMapping(value = "user/update/{userId}")
+        public ResponseEntity<?> userUpdateMethod (
+                @PathVariable String userId,
+                @ModelAttribute User user,
+                @RequestParam(name="profileImage", required = false) MultipartFile ufile,
+                @RequestParam(name="originalPwd", required = false) String originalUserPwd,
+                @RequestParam(name="ofile", required = false) String originalFilename){
+            log.info("/user/update : " + user);
 
             // 암호가 전송이 왔다면 (새로운 암호가 전송온 경우임)
             if (user.getUserPwd() != null && user.getUserPwd().length() > 0) {
@@ -150,13 +177,11 @@ public class UserController {
             }
 
             // 사진 파일 첨부가 있을 경우, 저장 폴더 지정 ---------------------------------------------
-            String savePath = request.getSession().getServletContext().getRealPath("resources/photoFiles");
-            // 서버 엔진이 구동하는 웹애플리케이션(Context)의 루트(webapp) 아래의 "resources/photoFiles" 까지의 경로
-            // 정보를 저장함
+            String savePath = uploadDir + "/photo";
             log.info("savePath : " + savePath);
 
             // 수정된 첨부파일이 있다면 지정 폴더에 저장 처리 ----------------------------
-            if (!ufile.isEmpty()) {
+            if (!ufile.isEmpty() && ufile != null) {
                 // 전송온 파일 이름 추출함
                 String profileImage = ufile.getOriginalFilename();
 
@@ -175,8 +200,7 @@ public class UserController {
                         } catch (Exception e) {
                             // 첨부파일 저장시 에러 발생
                             e.printStackTrace(); // 개발자가 볼 정보
-                            model.addAttribute("message", "첨부파일 업로드 실패!");
-                            return "common/error";
+                            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
                         }
                     } // if
 
@@ -191,29 +215,27 @@ public class UserController {
             // 서비스 모델의 메소드 실행 요청하고 결과받기
             if (userService.updateUser(user) != null) { // 회원 정보 수정 성공시
                 // 컨트롤러 메소드에서 다른 컨트롤러 메소드를 실행시킬 경우
-                return "redirect:main.do";
+                return new ResponseEntity<>(HttpStatus.OK);
             } else { // 회원 정보 수정 실패시
-                model.addAttribute("message", "회원 정보 수정 실패! 확인하고 다시 가입해 주세요.");
-                return "common/error";
+                return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
             }
         }
 
     //회원 탈퇴 (삭제) 처리용 메소드
-    @DeleteMapping("/udelete")
-    public String userDeleteMethod(@RequestParam("userId") String userId, Model model) {
+    @DeleteMapping("/user/delete/{userId}")
+    public ResponseEntity<?> userDeleteMethod(@RequestParam("userId") String userId) {
         if(userService.deleteUser(userId) > 0) {
             // 회원 탈퇴 성공시 자동 로그아웃 처리해야 함
-            return "redirect:logout.do";
+            return new ResponseEntity<>(HttpStatus.OK);
         }else {
-            model.addAttribute("message", userId + "님의 회원 탈퇴 실패! 관리자에게 문의하세요");
-            return "common/error";
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
     // 관리자용 기능 *********************************************************
 
     // 회원 목록 보기 요청 처리용 (페이징 처리 포함)
-    @GetMapping("/ulist")
+    @GetMapping("/admin/ulist")
     public ModelAndView userListMethod(ModelAndView mv,
                                          @RequestParam(name="page", required=false) String page,
                                          @RequestParam(name="limit", required=false) String slimit) {
@@ -258,7 +280,7 @@ public class UserController {
     }
 
     //회원 로그인 제한/허용 처리용 메소드
-    @PostMapping("/ustatus")
+    @PostMapping("admin/ustatus")
     public String changeStatusMethod(User user, Model model) {
         if(userService.updateStatus(user) > 0) {
             return "redirect:ulist.do";
