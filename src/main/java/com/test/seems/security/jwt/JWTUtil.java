@@ -94,6 +94,26 @@ public class JWTUtil {
     public String getCategoryFromToken(String token) {
         return getClaimsFromToken(token).get("category", String.class);
     }
+
+
+    public Long getAccessExpiration() { return accessExpiration; }
+    public Long getRefreshExpiration() { return refreshExpiration; }
+
+    // Face Login 토큰 발급
+    public String generateFaceAuthToken(User user) {
+        return Jwts.builder()
+                .setSubject(user.getUserId())
+                .claim("category", "face_auth")
+                .claim("authType", "FACE")
+                .claim("name", user.getUserName())
+                .claim("role", user.getAdminYn().equals("Y") ? "ADMIN" : "USER")
+                .setExpiration(new Date(System.currentTimeMillis() + accessExpiration))
+                .signWith(SignatureAlgorithm.HS512, secretKey)
+                .compact();
+    }
+
+
+
 }
 
 
