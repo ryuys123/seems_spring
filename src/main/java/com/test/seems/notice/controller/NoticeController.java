@@ -322,14 +322,14 @@ public class NoticeController {
 			@RequestParam("keyword") String keyword,
 			@RequestParam(name = "page", required = false, defaultValue = "1") int page,
 			@RequestParam(name = "limit", required = false, defaultValue = "10") int limit) {
-		log.info("/notice/search/title : " + keyword);
-		int listCount = noticeService.selectSearchTitleCount(keyword);
+		log.info("/notice/search/content : " + keyword);
+		int listCount = noticeService.selectSearchContentCount(keyword);
 
-		Paging paging = new Paging(listCount, limit, page, "/notice/search/title");
+		Paging paging = new Paging(listCount, limit, page, "/notice/search/content");
 		paging.calculate();
 
 		Pageable pageable = PageRequest.of(page - 1, limit, Sort.Direction.DESC, "noticeNo");
-		ArrayList<Notice> list = noticeService.selectSearchTitle(keyword, pageable);
+		ArrayList<Notice> list = noticeService.selectSearchContent(keyword, pageable);
 
 		Map<String, Object> result = new HashMap<>();
 
@@ -357,7 +357,7 @@ public class NoticeController {
 
 		int listCount = noticeService.selectSearchDateCount(search.getBegin().toLocalDate(), search.getEnd().toLocalDate());
 
-		Paging paging = new Paging(listCount, limit, page, "/notice/search/title");
+		Paging paging = new Paging(listCount, limit, page, "/notice/search/date");
 		paging.calculate();
 
 		Pageable pageable = PageRequest.of(page - 1, limit, Sort.Direction.DESC, "noticeNo");

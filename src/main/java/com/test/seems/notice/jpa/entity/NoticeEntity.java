@@ -23,7 +23,7 @@ public class NoticeEntity {
     @Column(name="TITLE", nullable=false)
     private String title;
     @Column(name="USER_ID", nullable=false)
-    private String userId;
+    private String userid;
     @Column(name="CONTENT", nullable=false)
     private String content;
     @Column(name="READCOUNT", columnDefinition = "0")
@@ -61,7 +61,7 @@ public class NoticeEntity {
         return Notice.builder()
                 .noticeNo(noticeNo)
                 .title(title)
-                .userId(userId)
+                .userid(userid)
                 .content(content)
                 .readCount(readCount)
                 .originalFilePath(originalFilePath)
