@@ -1,5 +1,6 @@
 package com.test.seems.notice.model.service;
 
+import java.sql.Date;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,6 +14,7 @@ import com.test.seems.notice.model.dto.Notice;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -259,6 +261,20 @@ public class NoticeService  {
 		* */
 		Optional<NoticeEntity> entityOptional = noticeRepository.findTopByOrderByNoticeNoDesc();
 		return entityOptional.isPresent() ? entityOptional.get().toDto() : null;
+	}
+
+	// importance impEndDate 지나면 N으로 변경
+	@Scheduled(cron = "0 0 0 * * *") // 매일 자정에 실행
+	@Transactional
+	public void updateExpiredImportance() {
+		LocalDate today = LocalDate.now();              // 오늘 날짜 (LocalDate)
+		Date todaySql = Date.valueOf(today);            // java.sql.Date로 변환 (DB용)
+
+		noticeRepository.findByImportanceAndImpEndDateBefore("Y", todaySql)
+				.forEach(entity -> {
+					entity.setImportance("N");
+					noticeRepository.save(entity);
+				});
 	}
 
 

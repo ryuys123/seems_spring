@@ -9,38 +9,38 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import com.test.seems.faq.jpa.entity.FaqEntity;
+import com.test.seems.faq.jpa.entity.ReplyEntity;
 
 @Data  // @Getter, @Setter, @ToString, @Equals, @HashCode 오버라이딩 까지 자동 코드 생성해 주는 어노테이션임
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class Faq {
+public class Reply {
     @NotBlank
+    private int replyNo;
     private int faqNo;
+    private int parentCommentNo;
+    private int commentLevel;
+    private int commentSeq;
     @NotBlank
     private String userid;
     @NotBlank
-    private String title;
-    @NotBlank
     private String content;
-    private String originalFilePath;
-    private String renameFilePath;
-    private String importance;
     @JsonFormat(pattern = "yyyy-MM-dd", timezone = "Asia/Seoul")
-    private Date faqDate;
+    private Date replyDate;
 
 
     //dto를 entity 로 변환하는 메소드
-    public FaqEntity toEntity(){
-        return FaqEntity.builder()
+    public ReplyEntity toEntity(){
+        return ReplyEntity.builder()
+                .replyNo(replyNo)
                 .faqNo(faqNo)
-                .title(title)
+                .parentCommentNo(parentCommentNo)
+                .commentLevel(commentLevel)
+                .commentSeq(commentSeq)
                 .userid(userid)
                 .content(content)
-                .originalFilePath(originalFilePath)
-                .renameFilePath(renameFilePath)
-                .faqDate(faqDate)
+                .replyDate(replyDate)
                 .build();
     }
 }
