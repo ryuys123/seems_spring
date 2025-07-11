@@ -10,4 +10,5 @@ import java.util.List;
 public interface TestQuestionRepository extends JpaRepository<TestQuestionEntity, Long> {
     List<TestQuestionEntity> findByTestType(String testType);
     List<TestQuestionEntity> findByTestTypeAndCategory(String testType, String category);
+    List<TestQuestionEntity> findByTestTypeIgnoreCaseAndCategoryIgnoreCase(String testType, String category);
 }

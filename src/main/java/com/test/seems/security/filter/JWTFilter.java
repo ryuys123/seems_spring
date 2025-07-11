@@ -29,6 +29,10 @@ public class JWTFilter extends OncePerRequestFilter {
     // 이 필터에서 토큰 확인 안 하고 서비스로 넘기도록 하면 됨
     // 그냥 통과시킬 url 등록 메소드를 추가함
     private boolean isExcludedUrl(String url) {
+        // ⭐️ 추가된 부분: /seems/images/ 디렉토리의 모든 파일에 대해 토큰 검사 없이 통과
+        if (url.startsWith("/seems/images/")) {
+            return true;
+        }
         return url.equals("/")
                 || url.equals("/favicon.ico")
                 || url.startsWith("/seems/login")
@@ -36,6 +40,11 @@ public class JWTFilter extends OncePerRequestFilter {
                 || url.equals("/seems/faq/*")
                 || url.equals("/seems/user/signup")
                 || url.equals("/seems/user/idchk")
+
+                || url.startsWith("/seems/api/psychological-test/image-question") // 이미지 문항 조회
+                || url.startsWith("/seems/api/psychological-test/submit-answer") // 답변 제출
+                || url.startsWith("/seems/api/psychological-test/results/") // 결과 조회
+
                 || url.startsWith("/seems/api/personality-test/questions")
                 || url.startsWith("/seems/api/personality-test/submit-answers")
                 || url.startsWith("/seems/api/psychological-test/")

@@ -136,6 +136,13 @@ public class SecurityConfig implements WebMvcConfigurer {
                         .requestMatchers("/*.png").permitAll()
                         // 로그인, 토큰 재발급, 회원가입도 인증없이 접근 허용함
                         .requestMatchers("/", "/login", "/reissue", "seems/user/signup", "seems/user/idchk", "/admin",
+                                "/seems/images/**",
+                                "/seems/css/**",
+                                "/seems/js/**",
+                                "/seems/favicon.ico",
+                                "/api/psychological-test/image-question", // 이미지 문항 조회
+                                "/api/psychological-test/submit-answer",  // 답변 제출
+                                "/api/psychological-test/results/**",     // 결과 조회
                                          "/api/personality-test/questions", "/api/personality-test/submit-answers",
                                         "/api/psychological-test/**").permitAll()
                         // 로그아웃은 인증된 사용자만 요청 가능 (인가 확인 필요)
