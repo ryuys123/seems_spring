@@ -12,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.sql.Date;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -45,6 +46,10 @@ public interface NoticeRepository extends JpaRepository<NoticeEntity, Integer> {
 
     // 최근 공지글 1개 조회 (가장 큰 공지번호에 대한 공지글 1개 조회)
     Optional<NoticeEntity> findTopByOrderByNoticeNoDesc();
+
+    // importance impEndDate 지나면 N으로 변경
+    List<NoticeEntity> findByImportanceAndImpEndDateBefore(String importance, Date date);
+
 }
 
 /* JpaRepository 가 제공하는 기본 메소드 정리
@@ -57,3 +62,5 @@ public interface NoticeRepository extends JpaRepository<NoticeEntity, Integer> {
  *  findAll(Pageable pageable)   => select * from 테이블명 where rownum between startrow and endrow
  *  existsById(id)
  * */
+
+

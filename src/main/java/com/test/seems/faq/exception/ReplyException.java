@@ -1,4 +1,4 @@
-package com.test.seems.reply.exception;
+package com.test.seems.faq.exception;
 
 public class ReplyException extends RuntimeException {
     public ReplyException(String message) {

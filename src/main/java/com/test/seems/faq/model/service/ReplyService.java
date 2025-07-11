@@ -1,4 +1,4 @@
-package com.test.seems.reply.model.service;
+package com.test.seems.faq.model.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
