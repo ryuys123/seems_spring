@@ -45,6 +45,8 @@ dependencies {
 	//오라클 db 사용 라이브러리 의존성 추가 (21C xe)
 	runtimeOnly 'com.oracle.database.jdbc:ojdbc11'
 
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+
 	// QueryDSL for JPA
 	implementation "com.querydsl:querydsl-jpa:${querydslVersion}:jakarta"
 	annotationProcessor "com.querydsl:querydsl-apt:${querydslVersion}:jakarta"
