@@ -79,11 +79,10 @@ public class ReIssueController {
                     // db 에서 회원정보 조회해 옴
                     User user = userService.selectUser(userId);
 
-                    // 새로운 리프레시 토큰을 생성함
-                    String newRefreshToken = jwtUtil.generateToken(user, "refresh");
-
                     log.info("RefreshToken 재발급 완료 - userId: {}, 갱신시간: {}", userId, LocalDateTime.now());
 
+                    // 새로운 리프레시 토큰을 생성함
+                    String newRefreshToken = jwtUtil.generateToken(user, "refresh");
                     // db 에 기록된 리프레시토큰 값 수정 처리
                     String id = refreshService.selectId(userId, refreshToken);  // id 조회
                     refreshService.updateRefreshToken(id, newRefreshToken);  // 리프레시토큰 변경
@@ -104,7 +103,7 @@ public class ReIssueController {
                 refreshService.deleteRefresh(id);
 
                 // 로그아웃되게 응답 처리함
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Losgin session expired");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Login session expired");
             }
 
             // access 만료, refresh 유효
@@ -115,8 +114,6 @@ public class ReIssueController {
 
                 // 새로운 accessToken 발급함
                 String newAccessToken = jwtUtil.generateToken(user, "access");
-
-                log.info("AccessToken 재발급 완료 - userId: {}, 갱신시간: {}", userId, LocalDateTime.now());
 
                 // 응답 처리함
                 response.setHeader("Authorization", "Bearer " + newAccessToken);
