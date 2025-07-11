@@ -94,13 +94,21 @@ public class NoticeController {
 	}
 
 	//공지글 상세보기 요청 처리용 : SELECT 쿼리문 실행 요청임 => GetMapping 임
-	@GetMapping("/notice/detail/{noticeNo}") // path 에 함께 전송오는 값을 받아줄 변수 '/{변수명}' 표시함, 임의대로 지정함
-	public ResponseEntity<Notice> noticeDetailMethod(@PathVariable int noticeNo) {
-		log.info("/notice/no 요청 : " + noticeNo); //전송받은 값 확인
+	@GetMapping("/notice/detail/{noticeNo}")
+	public ResponseEntity<Notice> noticeDetailMethod(
+			@PathVariable int noticeNo,
+			@RequestParam(name = "increase", defaultValue = "true") boolean increase) {
 
-		Notice notice = noticeService.selectNotice(noticeNo);
+		log.info("/notice/detail 요청 : " + noticeNo + ", increase = " + increase);
+
 		//조회수 1증가 처리
-		noticeService.updateAddReadCount(noticeNo);
+		// 조회수 증가 여부를 쿼리파라미터로 제어
+		if (increase) {
+			noticeService.updateAddReadCount(noticeNo);
+		}
+		// 정보 불러오기
+		Notice notice = noticeService.selectNotice(noticeNo);
+
 
 		return notice != null ? new ResponseEntity<>(notice, HttpStatus.OK): new ResponseEntity<>(HttpStatus.NOT_FOUND);
 	}
@@ -159,6 +167,12 @@ public class NoticeController {
 		//공지사항 첨부파일 저장 폴더를 경로 저장 (application.properties 에 경로 설정 추가)
 		String savePath = uploadDir + "/notice";
 		log.info("savePath : " + savePath);
+
+		// 저장 폴더 없으면 생성
+		File dir = new File(savePath);
+		if (!dir.exists()) {
+			dir.mkdirs();
+		}
 
 		//첨부파일이 있을 때
 		if (mfile != null && !mfile.isEmpty()) {
@@ -234,6 +248,12 @@ public class NoticeController {
 		// 첨부파일 관련 변경 사항 처리
 		// 공지사항 첨부파일 저장 폴더 경로 지정
 		String savePath = uploadDir + "/notice";
+
+		// 저장 폴더 없으면 생성
+		File dir = new File(savePath);
+		if (!dir.exists()) {
+			dir.mkdirs();
+		}
 
 		// 1. 원래 첨부파일이 있는데, '파일삭제'를 체크한 경우
 		//    또는 원래 첨부파일이 있는데 새로운 첨부파일로 변경 업로드된 경우
