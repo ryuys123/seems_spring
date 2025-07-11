@@ -1,17 +1,19 @@
 package com.test.seems.security.controller;
 
+import com.test.seems.security.jwt.JWTUtil;
+import com.test.seems.security.jwt.model.service.RefreshService;
+import com.test.seems.user.model.dto.User;
+import com.test.seems.user.model.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import com.test.seems.user.model.dto.User;
-import com.test.seems.user.model.service.UserService;
-import com.test.seems.security.jwt.JWTUtil;
-import com.test.seems.security.jwt.model.service.RefreshService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.time.LocalDateTime;
 
 /**
  * 토큰 재발급 요청 담당하는 컨트롤러임
@@ -52,7 +54,7 @@ public class ReIssueController {
             String refreshToken = refreshTokenHeader != null && refreshTokenHeader.startsWith("Bearer ")
                     ? refreshTokenHeader.substring("Bearer ".length()).trim() : null;
 
-            if (accessToken != null || refreshToken != null) {
+            if (accessToken == null || refreshToken == null) {
                 log.warn("RefreshToken or AccessToken 이 제공되지 않습니다.");
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("invalid tokens");
             }
@@ -60,9 +62,14 @@ public class ReIssueController {
             // accessToken 이 expiration 인지 확인
             boolean isAccessTokenExpired = jwtUtil.isTokenExpired(accessToken);
             log.info("isAccessTokenExpired: {}", isAccessTokenExpired ? "만료됨" : "유효함");
+
             // refreshToken 이 expiration 인지 확인
             boolean isRefreshTokenExpired = jwtUtil.isTokenExpired(refreshToken);
             log.info("isRefreshTokenExpired: {}", isRefreshTokenExpired ? "만료됨" : "유효함");
+
+            // 토큰 로그
+            log.info("토큰 만료 상태 - userId: {}, accessToken만료: {}, refreshToken만료: {}",
+                    jwtUtil.getUseridFromToken(accessToken), isAccessTokenExpired, isRefreshTokenExpired);
 
             // accessToken 이 유효하고 RefreshToken 이 만료된 경우  --------------------------------
             if (!isAccessTokenExpired && isRefreshTokenExpired) {
@@ -74,6 +81,9 @@ public class ReIssueController {
 
                     // 새로운 리프레시 토큰을 생성함
                     String newRefreshToken = jwtUtil.generateToken(user, "refresh");
+
+                    log.info("RefreshToken 재발급 완료 - userId: {}, 갱신시간: {}", userId, LocalDateTime.now());
+
                     // db 에 기록된 리프레시토큰 값 수정 처리
                     String id = refreshService.selectId(userId, refreshToken);  // id 조회
                     refreshService.updateRefreshToken(id, newRefreshToken);  // 리프레시토큰 변경
@@ -105,6 +115,8 @@ public class ReIssueController {
 
                 // 새로운 accessToken 발급함
                 String newAccessToken = jwtUtil.generateToken(user, "access");
+
+                log.info("AccessToken 재발급 완료 - userId: {}, 갱신시간: {}", userId, LocalDateTime.now());
 
                 // 응답 처리함
                 response.setHeader("Authorization", "Bearer " + newAccessToken);

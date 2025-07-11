@@ -19,6 +19,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 import java.io.IOException;
+import java.util.Date;
 import java.util.Map;
 import java.util.UUID;
 
@@ -138,6 +139,12 @@ public class LoginFilter extends UsernamePasswordAuthenticationFilter {
         String accessToken = jwtUtil.generateToken(user.toDto(), "access");
         // refresh token 생성
         String refreshToken = jwtUtil.generateToken(user.toDto(), "refresh");
+
+        // 로그인 성공시 토큰 발급 로그
+        log.info("로그인 토큰 발급 완료 - userId: {}, accessToken만료시간: {}, refreshToken만료시간: {}",
+                userId, new Date(System.currentTimeMillis() + jwtUtil.getAccessExpiration()),
+                new Date(System.currentTimeMillis() + jwtUtil.getRefreshExpiration()));
+
 
         // 리프레시 토큰은 db에 저장
         // 만약, MEMBER 테이블에 refreshToken 저장 컬럼을 추가했다면
