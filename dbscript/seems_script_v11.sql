@@ -702,6 +702,7 @@ COMMENT ON COLUMN TB_INQUIRIES.RENAME_FILEPATH IS '바뀐첨부파일';
 COMMENT ON COLUMN TB_INQUIRIES.CREATED_AT IS '문의 생성 시간';
 
 
+--(250711 신선혜 : TITLE, READ_COUNT COLUMN 삭제)
 -- 24. TB_COMMENTS
 CREATE TABLE TB_COMMENTS (
                              COMMENT_ID NUMBER(19) PRIMARY KEY,  -- 댓글 고유 식별자
@@ -710,9 +711,9 @@ CREATE TABLE TB_COMMENTS (
                              COMMENT_LEVEL NUMBER DEFAULT 1,     -- 댓글 단계: 1(댓글), 2(대댓글)
                              COMMENT_SEQ NUMBER DEFAULT 1,       -- 댓글 순서
                              USER_ID VARCHAR2(255),               -- 작성자
-                             TITLE VARCHAR2(50),                 -- 제목
+    --TITLE VARCHAR2(50),                 -- 제목
                              CONTENT VARCHAR2(2000) NOT NULL,    -- 내용
-                             READ_COUNT NUMBER DEFAULT 0,        -- 조회수
+    -- READ_COUNT NUMBER DEFAULT 0,        -- 조회수
                              CREATED_AT DATE DEFAULT SYSDATE,    -- 작성 시간
                              CONSTRAINT FK_COMMENT_USER_ID FOREIGN KEY (USER_ID) REFERENCES TB_USERS (USER_ID) ON DELETE CASCADE,
                              CONSTRAINT FK_COMMENT_INQUIRY FOREIGN KEY (INQUIRY_ID) REFERENCES TB_INQUIRIES (INQUIRY_ID) ON DELETE CASCADE,
@@ -1096,9 +1097,6 @@ VALUES (2, '신규 기능 업데이트 안내', 'user001', '금일자로 심리 
 
 -- BCrypt 해싱된 비밀번호로 업데이트 (123456 -> BCrypt 해싱)
 UPDATE TB_USERS SET USER_PWD = '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVEFDa' WHERE USER_ID = 'user002';
-
-UPDATE TB_USERS SET USER_PWD = '123456' WHERE USER_ID = 'user002';
-UPDATE TB_USERS SET USER_PWD = '654321' WHERE USER_ID = 'user001';
 
 COMMIT;
 

@@ -93,12 +93,20 @@ public class JWTFilter extends OncePerRequestFilter {
                 }
 
                 // AccessToken 만료, RefreshToken 유효 (위의 조건 통과했으므로, 질문 생략해도 됨)
-                if (jwtUtil.isTokenExpired(accessToken)) {
-                    log.warn("RefreshToken 유효, AccessToken 만료.");
-                    // 요청 에러에 대한 스트림 열어서 에러 정보를 클라이언트에게 보냄
+                if (jwtUtil.isTokenExpired(accessToken) && !jwtUtil.isTokenExpired(refreshToken)) {
+                    log.warn("AccessToken 만료, RefreshToken 유효 - ReIssueController로 전달");
+                    // AccessToken이 만료되어도 RefreshToken이 유효하면 요청을 통과시킴
+                    // ReIssueController에서 토큰 갱신 처리
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+                
+                // AccessToken 만료, RefreshToken도 만료
+                if (jwtUtil.isTokenExpired(accessToken) && jwtUtil.isTokenExpired(refreshToken)) {
+                    log.warn("AccessToken 만료, RefreshToken도 만료.");
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    response.setHeader("token-expired", "AccessToken");
-                    response.getWriter().write("{\"error\":\"AccessToken expired\"}");
+                    response.setHeader("token-expired", "Both");
+                    response.getWriter().write("{\"error\":\"Both tokens expired\"}");
                     return;
                 }
             } else {
