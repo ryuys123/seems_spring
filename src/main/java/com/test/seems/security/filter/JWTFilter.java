@@ -48,7 +48,10 @@ public class JWTFilter extends OncePerRequestFilter {
 
                 || url.startsWith("/seems/api/personality-test/questions")
                 || url.startsWith("/seems/api/personality-test/submit-answers")
+                || url.startsWith("/seems/api/personality-test/results/")
+
                 || url.startsWith("/seems/api/psychological-test/")
+
 
                 // 퀘스트 경로 추가
                 || url.startsWith("/seems/api/quest-rewards") // 뱃지 상점 API
