@@ -158,10 +158,12 @@ public class SecurityConfig implements WebMvcConfigurer {
                                 "/api/psychological-test/results/**",     // 결과 조회
                                          "/api/personality-test/questions", "/api/personality-test/submit-answers",
                                         "/api/psychological-test/**",
+                                "/api/personality-test/results/**",
                                 "/api/quest-rewards/**", // 뱃지 상점 API
                                 "/api/user/points", // 사용자 포인트 조회
                                 "/api/user/stats", // 사용자 통계 조회
-                                "/api/user/owned-titles").permitAll()
+                                "/api/user/owned-titles",
+                                "/api/simulation/**").permitAll()
                         // ===== 페이스로그인 관련 URL 허용 =====
                         .requestMatchers("/api/face/login").permitAll()
                         .requestMatchers("/api/face/register").permitAll()
