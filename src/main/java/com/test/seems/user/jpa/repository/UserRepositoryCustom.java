@@ -8,7 +8,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 public interface UserRepositoryCustom {
-    UserEntity findByUserId(String userId);
+    
 
     @Query(value = "UPDATE TB_USERS SET STATUS = :status WHERE USER_ID = :userId", nativeQuery = true)
     int modifyUserStatus(@Param("userId") String userId, @Param("status") int status);

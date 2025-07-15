@@ -27,17 +27,7 @@ public class UserRepositoryCumstomImpl implements UserRepositoryCustom {
     //queryDSL 은 Q엔티티클래스 사용함 => import static 을 사용하면 별도로 선언하지 않아도 됨
     //private QUserEntity qUserEntity = QUserEntity.userEntity;
 
-    /**
-     * 사용자 아이디로 회원 정보 조회
-     */
-    @Override
-    public UserEntity findByUserId(String userId) {
-        //queryDsl 사용
-        return queryFactory
-                .selectFrom(userEntity)  // SELECT * FROM userEntity
-                .where(userEntity.userId.eq(userId))  // WHERE userid = :userid
-                .fetchOne();  //단건 조회
-    }
+    
 
     /**
      * 로그인 가능 여부 상태 변경 (JPQL Native Query 사용)
