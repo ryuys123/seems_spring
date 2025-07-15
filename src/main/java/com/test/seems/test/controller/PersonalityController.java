@@ -1,76 +1,55 @@
 package com.test.seems.test.controller;
 
-// 임포트 경로 수정: model.dto 바로 아래에 TestQuestion.java 가 있다고 가정
-
 import com.test.seems.test.model.dto.Personality;
 import com.test.seems.test.model.dto.PersonalityTestResult;
 import com.test.seems.test.model.dto.TestQuestion;
 import com.test.seems.test.model.service.PersonalityService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
+@RequiredArgsConstructor // final 필드에 대한 생성자를 만들어주므로 @Autowired 생략 가능
 @RequestMapping("/api/personality-test")
 public class PersonalityController {
 
     private final PersonalityService personalityService;
 
-    @Autowired
-    public PersonalityController(PersonalityService personalityService) {
-        this.personalityService = personalityService;
-    }
-
     /**
      * 역할: 성격 검사 문항 목록을 프론트엔드에 제공합니다.
-     * 반환 타입: ResponseEntity<List<TestQuestion>>
      */
     @GetMapping("/questions")
-    public ResponseEntity<List<TestQuestion>> getPersonalityQuestions() { // <<-- 반환 타입 TestQuestion으로 변경
+    public ResponseEntity<List<TestQuestion>> getPersonalityQuestions() {
         List<TestQuestion> questions = personalityService.getPersonalityQuestions();
         return ResponseEntity.ok(questions);
     }
 
     /**
-     * 역할: 사용자가 성격 검사 답변을 제출하면, 이를 저장하고 MBTI 결과를 계산합니다.
-     * 요청 본문: List<Personality>
-     * 반환 타입: ResponseEntity<String>
+     * 역할: 사용자가 성격 검사 답변을 제출하면, 이를 저장하고 MBTI 결과를 계산하여 반환합니다.
      */
     @PostMapping("/submit-answers")
-    public ResponseEntity<String> submitPersonalityAnswers(
-            @RequestBody List<Personality> answers // <<-- Personality로 변경
+    // ✨ 1. 답변 제출 시에도 결과를 바로 반환하도록 수정
+    public ResponseEntity<PersonalityTestResult> submitPersonalityAnswers(
+            @RequestBody List<Personality> answers
     ) {
-        personalityService.submitAnswersAndCalculateResult(answers);
-        return ResponseEntity.ok("성격 검사 답변이 성공적으로 제출되었습니다.");
+        // Service는 이제 계산된 결과 DTO를 반환합니다.
+        PersonalityTestResult result = personalityService.submitAnswersAndCalculateResult(answers);
+        // 클라이언트에게 성공(200 OK)과 함께 결과 데이터를 전달합니다.
+        return ResponseEntity.ok(result);
     }
-
-    // 결과 조회 API는 현재 제외
-
-    /*
-    // /**
-    //  * 역할: 특정 사용자의 MBTI 검사 결과를 조회합니다. (현재는 제외)
-    //  * HTTP 메서드: GET
-    //  * 엔드포인트: /api/personality-test/results/{userId}
-    //  * 경로 변수: userId (조회하고자 하는 사용자 ID)
-    //  * 반환 타입: ResponseEntity<PersonalityTestResultResponseDto>
-    //  */
-    // @GetMapping("/results/{userId}")
-    // public ResponseEntity<PersonalityTestResultResponseDto> getPersonalityTestResult(@PathVariable Long userId) {
-    //     // 이 메서드는 나중에 결과 페이지 구현 시 다시 추가할 예정
-    //     return ResponseEntity.notFound().build();
-    // }
 
     /**
      * 역할: 특정 사용자의 최신 성격 검사 결과를 조회합니다.
-     * 경로 변수: userId (조회하고자 하는 사용자 ID)
-     * 반환 타입: ResponseEntity<PersonalityTestResultResponseDto>
      */
     @GetMapping("/results/{userId}")
+    // ✨ 2. Service에서 반환하는 Optional을 올바르게 처리하도록 수정
     public ResponseEntity<PersonalityTestResult> getPersonalityTestResult(@PathVariable String userId) {
-        PersonalityTestResult result = personalityService.getPersonalityTestResult(userId);
-        return ResponseEntity.ok(result);
+        return personalityService.getPersonalityTestResult(userId)
+                // Optional에 결과가 있으면(map), 200 OK 응답으로 감싸고
+                .map(result -> ResponseEntity.ok(result))
+                // Optional이 비어있으면(orElseGet), 404 Not Found 응답을 생성합니다.
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }
-
