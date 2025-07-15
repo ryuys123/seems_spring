@@ -23,12 +23,15 @@ public class Faq {
     @NotBlank
     private String title;
     @NotBlank
+    private String category;
+    @NotBlank
     private String content;
-    private String originalFilePath;
-    private String renameFilePath;
     private String importance;
+    private String status;
     @JsonFormat(pattern = "yyyy-MM-dd", timezone = "Asia/Seoul")
     private Date faqDate;
+    @JsonFormat(pattern = "yyyy-MM-dd", timezone = "Asia/Seoul")
+    private Date reFaqDate;
 
 
     //dto를 entity 로 변환하는 메소드
@@ -37,10 +40,11 @@ public class Faq {
                 .faqNo(faqNo)
                 .title(title)
                 .userid(userid)
+                .category(category)
                 .content(content)
-                .originalFilePath(originalFilePath)
-                .renameFilePath(renameFilePath)
                 .faqDate(faqDate)
+                .reFaqDate(reFaqDate)
+                .status(status)
                 .build();
     }
 }

@@ -24,18 +24,21 @@ public class FaqEntity {
     private String userid;
     @Column(name="TITLE", nullable=false)
     private String title;
+    @Column(name="CATEGORY", nullable=false)
+    private String category;
     @Column(name="CONTENT", nullable=false)
     private String content;
-    @Column(name="ORIGINAL_FILEPATH")
-    private String originalFilePath;
-    @Column(name="RENAME_FILEPATH")
-    private String renameFilePath;
+    @Column(name="STATUS", nullable=false)
+    private String status;
     @Column(name="CREATED_AT", nullable=false)
     private Date faqDate;
+    @Column(name="LAST_ACTIVITY_AT")
+    private Date reFaqDate;
 
     @PrePersist   // jpa 리포지터리로 넘어가기 전에 (sql 에 적용하기 전) 작동되는 어노테이션임
     public void prePersist() {
         faqDate = new java.sql.Date(System.currentTimeMillis());
+        reFaqDate = new java.sql.Date(System.currentTimeMillis());
     }
 
     //controller 는 dto 를 받아서 취급함
@@ -50,10 +53,11 @@ public class FaqEntity {
                 .faqNo(faqNo)
                 .title(title)
                 .userid(userid)
+                .category(category)
                 .content(content)
-                .originalFilePath(originalFilePath)
-                .renameFilePath(renameFilePath)
                 .faqDate(faqDate)
+                .reFaqDate(reFaqDate)
+                .status(status)
                 .build();
     }
 }
