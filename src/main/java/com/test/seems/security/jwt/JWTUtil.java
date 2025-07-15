@@ -99,7 +99,9 @@ public class JWTUtil {
     public Long getAccessExpiration() { return accessExpiration; }
     public Long getRefreshExpiration() { return refreshExpiration; }
 
-    // Face Login 토큰 발급
+
+
+    // 페이스 로그인 토큰 발급
     public String generateFaceAuthToken(User user) {
         return Jwts.builder()
                 .setSubject(user.getUserId())
@@ -110,6 +112,44 @@ public class JWTUtil {
                 .setExpiration(new Date(System.currentTimeMillis() + accessExpiration))
                 .signWith(SignatureAlgorithm.HS512, secretKey)
                 .compact();
+    }
+
+    // 페이스인증 토큰 검증 메소드 추가
+    public boolean isFaceAuthToken(String token) {
+        try {
+            Claims claims = getClaimsFromToken(token);
+            String category = claims.get("category", String.class);
+            String authType = claims.get("authType", String.class);
+            return "face_auth".equals(category) && "FACE".equals(authType);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+    
+    // 페이스 로그인 전용 토큰 생성
+    public String createFaceJwt(String category, String userId, Long expiration) {
+        return Jwts.builder()
+                .setSubject(userId)
+                .claim("category", category)
+                .claim("authType", "FACE")
+                .setExpiration(new Date(System.currentTimeMillis() + expiration))
+                .signWith(SignatureAlgorithm.HS512, secretKey)
+                .compact();
+    }
+    
+    // 토큰에서 카테고리 추출
+    public String getCategory(String token) {
+        return getClaimsFromToken(token).get("category", String.class);
+    }
+    
+    // 토큰에서 사용자 ID 추출 (String 타입)
+    public String getUserId(String token) {
+        return getClaimsFromToken(token).getSubject();
+    }
+    
+    // 토큰에서 사용자명 추출
+    public String getUsername(String token) {
+        return getClaimsFromToken(token).get("name", String.class);
     }
 
 

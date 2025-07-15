@@ -117,6 +117,69 @@ public class UserController {
 
 
     }
+    
+    /**
+     * 페이스 등록이 포함된 회원가입
+     */
+    @PostMapping("api/face-signup")
+    public ResponseEntity<?> userInsertWithFaceMethod(
+            @ModelAttribute User user,
+            @RequestParam(name="profileImage", required = false) MultipartFile ufile,
+            @RequestParam(name="faceImageData", required = false) String faceImageData,
+            @RequestParam(name="faceName", required = false) String faceName) {
+        log.info("/api/face-signup : " + user);
+
+        // 패스워드 암호화 처리
+        user.setUserPwd(bcryptPasswordEncoder.encode(user.getUserPwd()));
+        log.info("after encode : " + user.getUserPwd() + ", length : " + user.getUserPwd().length());
+
+        // 회원가입시 사진 파일첨부가 있을 경우, 저장 폴더 경로 지정
+        String savePath = uploadDir + "/photo";
+        log.info("savePath : " + savePath);
+
+        File directory = new File(savePath);
+        if(!directory.exists()){
+            directory.mkdirs();
+        }
+
+        // 사진 첨부파일이 있다면
+        if (ufile != null && !ufile.isEmpty()) {
+            String fileName = ufile.getOriginalFilename();
+            String renameFileName = user.getUserId() + "_" + fileName;
+
+            if (fileName != null && fileName.length() > 0) {
+                try {
+                    ufile.transferTo(new File(savePath, renameFileName));
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+                }
+            }
+            user.setProfileImage(renameFileName);
+        }
+
+        //가입정보 추가 입력 처리
+        user.setStatus(1);
+        user.setAdminYn("N");
+        user.setFaceLoginEnabled(false); // 기본값은 비활성화
+        log.info("userInsertWithFaceMethod : " + user);
+
+        try {
+            User savedUser = userService.insertUser(user);
+            
+            // 페이스 등록이 요청된 경우
+            if (savedUser != null && faceImageData != null && faceName != null) {
+                // FaceLoginService를 통한 페이스 등록
+                // 이 부분은 별도 API로 처리하는 것이 더 적절할 수 있습니다.
+                log.info("회원가입 시 페이스 등록 요청: 사용자 {}, 페이스 {}", savedUser.getUserId(), faceName);
+            }
+            
+            return ResponseEntity.status(HttpStatus.OK).build();
+        } catch (Exception e) {
+            log.error("페이스 등록 포함 회원가입 오류", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("회원가입 실패");
+        }
+    }
 
     // '내 정보 보기' 요청 처리용 메소드
     /*

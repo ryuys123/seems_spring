@@ -23,6 +23,8 @@ public class QUserEntity extends EntityPathBase<UserEntity> {
 
     public final DateTimePath<java.util.Date> createdAt = createDateTime("createdAt", java.util.Date.class);
 
+    public final BooleanPath faceLoginEnabled = createBoolean("faceLoginEnabled");
+
     public final StringPath phone = createString("phone");
 
     public final StringPath profileImage = createString("profileImage");
