@@ -10,7 +10,7 @@ import com.test.seems.test.jpa.entity.PersonalityEntity; // <<-- 엔티티 임�
 @NoArgsConstructor
 @AllArgsConstructor
 public class Personality {
-    private Long userId;
+    private String userId;
     private Long questionId;
     private Integer answerValue;
 
