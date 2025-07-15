@@ -147,9 +147,9 @@ public class LoginFilter extends UsernamePasswordAuthenticationFilter {
 
 
         // 리프레시 토큰은 db에 저장
-        // 만약, MEMBER 테이블에 refreshToken 저장 컬럼을 추가했다면
-//        member.setRefreshToken(refreshToken);
-//        memberService.updateRefreshToken(member);  // update 쿼리문 실행, 트랜잭션 처리가 필요함
+        // 만약, User 테이블에 refreshToken 저장 컬럼을 추가했다면
+//        user.setRefreshToken(refreshToken);
+//        userService.updateRefreshToken(user);  // update 쿼리문 실행, 트랜잭션 처리가 필요함
 
         // 리프레시토큰 저장용 테이블을 따로 준비했다면
         refreshService.saveRefresh(new RefreshToken(UUID.randomUUID().toString(), userId, refreshToken));

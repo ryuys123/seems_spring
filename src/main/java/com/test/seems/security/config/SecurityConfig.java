@@ -1,5 +1,6 @@
 package com.test.seems.security.config;
 
+import com.test.seems.face.filter.FaceLoginFilter;
 import com.test.seems.security.filter.JWTFilter;
 import com.test.seems.security.filter.LoginFilter;
 import com.test.seems.security.handler.CustomLogoutHandler;
@@ -37,7 +38,7 @@ public class SecurityConfig implements WebMvcConfigurer {
     private final CustomUserDetailsService userDetailsService;
     private final UserRepository userRepository;   // 아래의 필터 추가 부분에 LoginFilter 생성자 사용에 필요해서 준비한 것임
     private final RefreshService refreshService; // LoginFilter 생성자에 필요해서 준비함
-
+    
     // 멤버변수에 final 사용하면, 매개변수 있는 생성자로 의존성 주입 처리해야 함
     // @RequiredArgsConstructor 로 대신해도 됨
     public SecurityConfig(JWTUtil jwtUtil, CustomUserDetailsService userDetailsService,
@@ -81,6 +82,8 @@ public class SecurityConfig implements WebMvcConfigurer {
     public BCryptPasswordEncoder bcryptPasswordEncoder() {
         return new BCryptPasswordEncoder();
     }
+    
+
 
     // 인증 (Authentication) 관리자를 스프링부트 컨테이너에 Bean 으로 등록해야 함
     @Bean
@@ -97,6 +100,13 @@ public class SecurityConfig implements WebMvcConfigurer {
         return daoAuthenticationProvider;
     }
 
+    @Bean
+    public FaceLoginFilter faceLoginFilter(JWTUtil jwtUtil) {
+        return new FaceLoginFilter(jwtUtil);
+    }
+
+
+
     // ---------------------------------------------------------
     // CORS (Cross-Origin Resource Sharing) 문제 해결해야 함
     // 브라우저 보안 정책임 : 포트번호가 다른 도메인에서 다른 도메인의 리소스를 요청할 때, 허용되지 않게 되어 있음
@@ -107,7 +117,7 @@ public class SecurityConfig implements WebMvcConfigurer {
                 .allowedOrigins("http://localhost:3000")
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
-                .exposedHeaders("token-expired", "Authorization", "RefreshToken")
+                .exposedHeaders("token-expired", "Authorization", "RefreshToken", "Face-Auth-Status")
                 .allowCredentials(true);
     }
     // -------------------------------------------------------
@@ -115,7 +125,7 @@ public class SecurityConfig implements WebMvcConfigurer {
     // http 관련 보안 설정을 정의하는 메소드임
     // SecurityFilterChain 을 Bean 으로 등록하고, http 서비스 요청에 대한 보안 설정을 정의함
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, AuthenticationManager authenticationManager, CustomLogoutHandler customLogoutHandler) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, AuthenticationManager authenticationManager, CustomLogoutHandler customLogoutHandler, FaceLoginFilter faceLoginFilter) throws Exception {
         //http.csrf(AbstractHttpConfigurer::disable);  // 아래 코드도 동일한 기능임
         //Spring Security 6 이상에서 사용하는 람다 기반 보안 설정 방식 사용함
         http
@@ -140,11 +150,22 @@ public class SecurityConfig implements WebMvcConfigurer {
                                 "/seems/css/**",
                                 "/seems/js/**",
                                 "/seems/favicon.ico",
+                                "/seems/api/face-signup",
+                                "/api/psychological-test/**",
+                                "/api/simulation/**",
                                 "/api/psychological-test/image-question", // 이미지 문항 조회
                                 "/api/psychological-test/submit-answer",  // 답변 제출
                                 "/api/psychological-test/results/**",     // 결과 조회
                                          "/api/personality-test/questions", "/api/personality-test/submit-answers",
-                                        "/api/psychological-test/**").permitAll()
+                                        "/api/psychological-test/**",
+                                "/api/quest-rewards/**", // 뱃지 상점 API
+                                "/api/user/points", // 사용자 포인트 조회
+                                "/api/user/stats", // 사용자 통계 조회
+                                "/api/user/owned-titles").permitAll()
+                        // ===== 페이스로그인 관련 URL 허용 =====
+                        .requestMatchers("/api/face/login").permitAll()
+                        .requestMatchers("/api/face/register").permitAll()
+                        .requestMatchers("/api/face/**").permitAll()
                         // 로그아웃은 인증된 사용자만 요청 가능 (인가 확인 필요)
                         .requestMatchers("/logout").authenticated()
                         // 관리자 전용 서비스인 경우 ROLE_ADMIN 권한 확인 필요함
@@ -155,7 +176,10 @@ public class SecurityConfig implements WebMvcConfigurer {
                 )
                 // 모든 url 이 인가에서는 제외되었지만 (permitAll) JWTFilter 는 무조건 실행됨 => 토큰 검사함
                 // 해결방법 : JWTFilter 안에 특정 url 에 대해 토큰검사 제외하는 기능 추가함
-                .addFilterBefore(new JWTFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(new JWTFilter(jwtUtil, userDetailsService), UsernamePasswordAuthenticationFilter.class)
+                // ===== 페이스로그인 필터 추가 =====
+                .addFilterBefore(faceLoginFilter, 
+                               UsernamePasswordAuthenticationFilter.class)
                 // 로그인 인증(Authentication) 은 인증 관리자(AuthenticationManager)가 관리해야 함
                 .addFilterAt(new LoginFilter(authenticationManager, jwtUtil, userRepository, refreshService, passwordEncoder()),
                         UsernamePasswordAuthenticationFilter.class)
@@ -170,10 +194,17 @@ public class SecurityConfig implements WebMvcConfigurer {
                         .invalidateHttpSession(true)   // 세션 무효화
                         .clearAuthentication(true)  // 인증 정보 제거
                         .deleteCookies("JSESSIONID")  // 쿠키 제거
+
+
+                        
                 );
 
         return http.build();
     }
+
+
+
+
 
 
 

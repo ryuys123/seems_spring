@@ -157,5 +157,47 @@ public class UserService {
     private boolean isBCryptHash(String password) {
         return password != null && password.startsWith("$2a$");
     }
+    
+    /**
+     * 회원가입 시 페이스 등록
+     */
+    @Transactional
+    public User insertUserWithFace(User user, String faceImageData, String faceName) {
+        // 1. 기본 회원가입 처리
+        User savedUser = insertUser(user);
+        
+        if (savedUser != null && faceImageData != null && faceName != null) {
+            // 2. 페이스 등록 처리
+            try {
+                // FaceLoginService를 통한 페이스 등록
+                // 이 부분은 컨트롤러에서 처리하는 것이 더 적절할 수 있습니다.
+                log.info("회원가입 시 페이스 등록 요청: 사용자 {}, 페이스 {}", savedUser.getUserId(), faceName);
+            } catch (Exception e) {
+                log.error("회원가입 시 페이스 등록 실패: {}", e.getMessage());
+            }
+        }
+        
+        return savedUser;
+    }
+    
+    /**
+     * 페이스 로그인 활성화 상태 업데이트
+     */
+    @Transactional
+    public boolean updateFaceLoginEnabled(String userId, boolean enabled) {
+        try {
+            UserEntity user = userRepository.findByUserId(userId);
+            if (user != null) {
+                user.setFaceLoginEnabled(enabled);
+                userRepository.save(user);
+                log.info("페이스 로그인 상태 변경: 사용자 {}, 활성화: {}", userId, enabled);
+                return true;
+            }
+            return false;
+        } catch (Exception e) {
+            log.error("페이스 로그인 상태 변경 실패: {}", e.getMessage());
+            return false;
+        }
+    }
 
 }

@@ -1,28 +1,28 @@
 package com.test.seems.security.filter;
 
+import com.test.seems.security.jwt.JWTUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
-import com.test.seems.security.jwt.JWTUtil;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
 @Slf4j
-// Spring security 가 제공하는 OncePerRequestFilter 를 상속받음
-// => 모든 인증검사에 해당하는 요청 (SecurityConfig 에 authenticated() 지정된 url)에 대해 한번씩 실행되는 필터가 됨
-// 토큰 검사하는 필터로 준비함
-// 컨트롤러 메소드 서비스로 전달되기 전에 토큰이 유효한지 검사하는 필터로 사용함
 public class JWTFilter extends OncePerRequestFilter {
-    
-    // 웹 서비스 요청 각각에 대해 로그인 상태 토큰을 취급하기 위해 JWTUtil 의존성 주입함
-    private final JWTUtil jwtUtil;  // 어노테이션사용 또는 생성자 직접 작성
 
-    // 생성자 직접 작성 => @RequiredArgsConstructor 를 사용해도 됨
-    public JWTFilter(JWTUtil jwtUtil) {
+    private final JWTUtil jwtUtil;
+    private final UserDetailsService userDetailsService; // UserDetailsService 주입
+
+    public JWTFilter(JWTUtil jwtUtil, UserDetailsService userDetailsService) {
         this.jwtUtil = jwtUtil;
+        this.userDetailsService = userDetailsService;
     }
 
     // 개발단계에서 SecurityConfig 설정은 그대로 둔 상태에서 토큰 없이 서비스 구동을 확인하려면
@@ -40,6 +40,7 @@ public class JWTFilter extends OncePerRequestFilter {
                 || url.equals("/seems/faq/*")
                 || url.equals("/seems/user/signup")
                 || url.equals("/seems/user/idchk")
+                || url.equals("/seems/api/face-signup")
 
                 || url.startsWith("/seems/api/psychological-test/image-question") // 이미지 문항 조회
                 || url.startsWith("/seems/api/psychological-test/submit-answer") // 답변 제출
@@ -48,6 +49,17 @@ public class JWTFilter extends OncePerRequestFilter {
                 || url.startsWith("/seems/api/personality-test/questions")
                 || url.startsWith("/seems/api/personality-test/submit-answers")
                 || url.startsWith("/seems/api/psychological-test/")
+
+                // 퀘스트 경로 추가
+                || url.startsWith("/seems/api/quest-rewards") // 뱃지 상점 API
+                || url.startsWith("/seems/api/user/points") // 사용자 포인트 조회
+                || url.startsWith("/seems/api/user/stats") // 사용자 통계 조회
+                || url.startsWith("/seems/api/user/owned-titles") // 사용자 보유 뱃지 조회
+
+                // ** 시뮬레이션 API 경로 추가 **
+                || url.startsWith("/api/simulation/")
+                || url.startsWith("/seems/api/simulation/")
+
                 // 문자열 비교이기 때문에 실제 요청 경로가 /notice/detail/13일 경우,
                 // "/notice/detail/*".equals("/notice/detail/13") → false가 됩니다.
                 // 해결 방법: startsWith()로 경로 시작 여부로 검사
@@ -55,6 +67,8 @@ public class JWTFilter extends OncePerRequestFilter {
                 || url.endsWith(".png")
                 || url.equals("/notice/attachments/")  // notice 첨부파일들 등록
                 || url.equals("/payments/request/");
+
+
     }
 
 
@@ -86,10 +100,20 @@ public class JWTFilter extends OncePerRequestFilter {
         }
 
         try {
-            if ((accessTokenHeader != null && refreshTokenHeader != null)) {
-                // 각 해더에서 token 추출
-                String accessToken = accessTokenHeader.substring("Bearer ".length());
-                String refreshToken = refreshTokenHeader.substring("Bearer ".length());
+                String accessToken = null;
+                String refreshToken = null;
+
+                if ((accessTokenHeader != null && refreshTokenHeader != null)) {
+                    // 각 해더에서 token 추출
+                    accessToken = accessTokenHeader.substring("Bearer ".length());
+                    refreshToken = refreshTokenHeader.substring("Bearer ".length());
+
+                    // AccessToken에서 사용자 이름 추출 및 인증 정보 설정
+                    String username = jwtUtil.getUseridFromToken(accessToken);
+                    UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                    UsernamePasswordAuthenticationToken authenticationToken =
+                            new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                    SecurityContextHolder.getContext().setAuthentication(authenticationToken);
 
                 // RefreshToken 만료, AccessToken 유효
                 if (!jwtUtil.isTokenExpired(accessToken) && jwtUtil.isTokenExpired(refreshToken)) {

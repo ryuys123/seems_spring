@@ -30,6 +30,7 @@ public class User {
     @NotBlank
     private int status;        // STATUS NUMBER(1) DEFAULT 1 NOT NULL
     private String adminYn;        // ADMIN_YN VARCHAR2(1) DEFAULT 'N'
+    private Boolean faceLoginEnabled; // FACE_LOGIN_ENABLED BOOLEAN DEFAULT FALSE
 
     public UserEntity toEntity() {
         return UserEntity.builder()
@@ -42,6 +43,7 @@ public class User {
                 .updatedAt(updatedAt)
                 .status(status)
                 .adminYn(adminYn)
+                .faceLoginEnabled(faceLoginEnabled)
                 .build();
     }
 

@@ -45,10 +45,16 @@ public class UserEntity {
     @Column(name = "ADMIN_YN", length = 1)
     private String adminYn;
     
+    @Column(name = "FACE_LOGIN_ENABLED", nullable = false)
+    private Boolean faceLoginEnabled;
+    
     @PrePersist
     public void prePersist() {
         createdAt = new GregorianCalendar().getGregorianChange();    //현재 날짜 시간 적용
         updatedAt = new GregorianCalendar().getGregorianChange();  //현재 날짜 시간 적용
+        if (faceLoginEnabled == null) {
+            faceLoginEnabled = false; // 기본값은 비활성화
+        }
     }
 
     //entity -> dto 로 변환
@@ -63,6 +69,7 @@ public class UserEntity {
                 .updatedAt(updatedAt)
                 .status(status)
                 .adminYn(adminYn)
+                .faceLoginEnabled(faceLoginEnabled)
                 .build();
     }
 }
