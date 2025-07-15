@@ -3,6 +3,7 @@ package com.test.seems.test.controller;
 // 임포트 경로 수정: model.dto 바로 아래에 TestQuestion.java 가 있다고 가정
 
 import com.test.seems.test.model.dto.Personality;
+import com.test.seems.test.model.dto.PersonalityTestResult;
 import com.test.seems.test.model.dto.TestQuestion;
 import com.test.seems.test.model.service.PersonalityService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -61,4 +62,15 @@ public class PersonalityController {
     //     return ResponseEntity.notFound().build();
     // }
 
+    /**
+     * 역할: 특정 사용자의 최신 성격 검사 결과를 조회합니다.
+     * 경로 변수: userId (조회하고자 하는 사용자 ID)
+     * 반환 타입: ResponseEntity<PersonalityTestResultResponseDto>
+     */
+    @GetMapping("/results/{userId}")
+    public ResponseEntity<PersonalityTestResult> getPersonalityTestResult(@PathVariable String userId) {
+        PersonalityTestResult result = personalityService.getPersonalityTestResult(userId);
+        return ResponseEntity.ok(result);
+    }
 }
+

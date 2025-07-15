@@ -20,7 +20,7 @@ public class PersonalityEntity {
     private Long answerId;
 
     @Column(name = "USER_ID", nullable = false)
-    private Long userId;
+    private String userId;
 
     @Column(name = "QUESTION_ID", nullable = false)
     private Long questionId; // FK
