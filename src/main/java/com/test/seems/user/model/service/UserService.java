@@ -3,6 +3,8 @@ package com.test.seems.user.model.service;
 import com.test.seems.user.jpa.entity.UserEntity;
 import com.test.seems.user.jpa.repository.UserRepository;
 import com.test.seems.user.model.dto.User;
+import com.test.seems.user.model.dto.UserInfoResponse;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,10 +21,10 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class UserService {
-    
+
     @Autowired
     private final UserRepository userRepository;
-    
+
     @Autowired
     private BCryptPasswordEncoder bcryptPasswordEncoder;
 
@@ -40,15 +42,42 @@ public class UserService {
         return entity != null ? entity.toDto() : null;
     }
 
+    // 마이페이지용 사용자 정보 반환
+    public UserInfoResponse getUserInfoByUserId(String userId) {
+        UserEntity entity = userRepository.findByUserId(userId);
+        if (entity == null) return null;
+        return new UserInfoResponse(
+                entity.getUserName(),
+                entity.getEmail(),
+                entity.getPhone(),
+                entity.getProfileImage(),
+                entity.getCreatedAt() != null ? entity.getCreatedAt().toString() : null,
+                entity.getStatus()
+        );
+    }
+
+    // 마이페이지 사용자 정보 수정
+    public boolean updateUserInfo(String userId, com.test.seems.user.model.dto.UserInfoResponse req) {
+        UserEntity entity = userRepository.findByUserId(userId);
+        if (entity == null) return false;
+        entity.setUserName(req.getUserName());
+        entity.setEmail(req.getEmail());
+        entity.setPhone(req.getPhone());
+        entity.setProfileImage(req.getProfileImage());
+        entity.setUpdatedAt(new java.util.Date());
+        userRepository.save(entity);
+        return true;
+    }
+
     @Transactional
     public User insertUser(User user) {
-        // ✅ 회원가입 시 비밀번호를 BCrypt로 해싱
+        // 회원가입 시 비밀번호를 BCrypt로 해싱
         if (user.getUserPwd() != null && !isBCryptHash(user.getUserPwd())) {
             String hashedPassword = bcryptPasswordEncoder.encode(user.getUserPwd());
             user.setUserPwd(hashedPassword);
             log.info("회원가입 - 비밀번호 해싱 완료: userId={}", user.getUserId());
         }
-        
+
         //jpa 제공 메소드 사용
         //save(entity) : entity => 실패하면 null 리턴
         return userRepository.save(user.toEntity()).toDto();
@@ -58,14 +87,14 @@ public class UserService {
     public User updateUser(User user) {
         // ✅ 비밀번호 변경 시에도 해싱 처리
         UserEntity existingUser = userRepository.findByUserId(user.getUserId());
-        if (existingUser != null && user.getUserPwd() != null && 
-            !isBCryptHash(user.getUserPwd()) && 
-            !user.getUserPwd().equals(existingUser.getUserPwd())) {
+        if (existingUser != null && user.getUserPwd() != null &&
+                !isBCryptHash(user.getUserPwd()) &&
+                !user.getUserPwd().equals(existingUser.getUserPwd())) {
             String hashedPassword = bcryptPasswordEncoder.encode(user.getUserPwd());
             user.setUserPwd(hashedPassword);
             log.info("비밀번호 변경 - 해싱 완료: userId={}", user.getUserId());
         }
-        
+
         //jpa 제공 메소드 사용
         return userRepository.save(user.toEntity()).toDto();
     }
@@ -157,7 +186,7 @@ public class UserService {
     private boolean isBCryptHash(String password) {
         return password != null && password.startsWith("$2a$");
     }
-    
+
     /**
      * 회원가입 시 페이스 등록
      */
@@ -165,7 +194,7 @@ public class UserService {
     public User insertUserWithFace(User user, String faceImageData, String faceName) {
         // 1. 기본 회원가입 처리
         User savedUser = insertUser(user);
-        
+
         if (savedUser != null && faceImageData != null && faceName != null) {
             // 2. 페이스 등록 처리
             try {
@@ -176,10 +205,10 @@ public class UserService {
                 log.error("회원가입 시 페이스 등록 실패: {}", e.getMessage());
             }
         }
-        
+
         return savedUser;
     }
-    
+
     /**
      * 페이스 로그인 활성화 상태 업데이트
      */
