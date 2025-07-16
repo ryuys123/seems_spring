@@ -13,6 +13,7 @@ public class Personality {
     private String userId;
     private Long questionId;
     private Integer answerValue;
+    private Long personalityTestId; // ✨ 필드 추가
 
     // DTO를 엔티티로 변환하는 메소드
     public PersonalityEntity toEntity() { // <<-- 이 메소드 추가
