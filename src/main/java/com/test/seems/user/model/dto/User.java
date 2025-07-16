@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-@Builder
+@Builder(toBuilder = true)
 public class User {
     //Field == Property (멤버변수 == 속성)
     //validation 검사는 뷰에서 컨트롤러 command 객체로 값 전송될 때 검사자 작동됨
@@ -23,6 +23,7 @@ public class User {
     @NotBlank
     private String userName;       // USERNAME VARCHAR2(50) NOT NULL
     private String profileImage;   // PROFILE_IMAGE BLOB
+    private String email; // EMAIL VARCHAR2(100 BYTE)
     @JsonFormat(pattern = "yyyy-MM-dd")
     private java.util.Date createdAt;        // CREATED_AT DATE DEFAULT SYSDATE NOT NULL
     @JsonFormat(pattern = "yyyy-MM-dd")
@@ -39,6 +40,7 @@ public class User {
                 .userPwd(userPwd)
                 .userName(userName)
                 .profileImage(profileImage)
+                .email(email)
                 .createdAt(createdAt)
                 .updatedAt(updatedAt)
                 .status(status)

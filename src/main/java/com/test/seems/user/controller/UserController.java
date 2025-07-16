@@ -3,6 +3,7 @@ package com.test.seems.user.controller;
 import com.test.seems.common.Paging;
 import com.test.seems.common.Search;
 import com.test.seems.user.model.dto.User;
+import com.test.seems.user.model.dto.UserInfoResponse;
 import com.test.seems.user.model.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +14,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -30,6 +32,33 @@ import java.util.Map;
 @RequiredArgsConstructor
 @CrossOrigin		//리액트 애플리케이션 (포트가 다름)의 요청을 처리하기 위함
 public class UserController {
+
+    /**
+     * 마이페이지 사용자 정보 API (/user/info)
+     */
+    @GetMapping("/user/info")
+    public ResponseEntity<UserInfoResponse> getUserInfo(Authentication authentication) {
+        String userId = authentication.getName(); // 인증 방식에 따라 다를 수 있음
+        UserInfoResponse userInfo = userService.getUserInfoByUserId(userId);
+        if (userInfo == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+        return ResponseEntity.ok(userInfo);
+    }
+
+    /**
+     * 마이페이지 사용자 정보 수정 API (/user/info)
+     */
+    @PutMapping("/user/info")
+    public ResponseEntity<?> updateUserInfo(@RequestBody UserInfoResponse req, Authentication authentication) {
+        String userId = authentication.getName();
+        boolean result = userService.updateUserInfo(userId, req);
+        if (result) {
+            return ResponseEntity.ok().build();
+        } else {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("수정 실패");
+        }
+    }
 
     // 서비스 모델과 연결 처리 (의존성 주입, 자동 연결 처리)
     private final UserService userService;
