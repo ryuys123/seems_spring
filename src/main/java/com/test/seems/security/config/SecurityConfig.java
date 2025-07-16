@@ -163,7 +163,8 @@ public class SecurityConfig implements WebMvcConfigurer {
                                 "/api/user/points", // 사용자 포인트 조회
                                 "/api/user/stats", // 사용자 통계 조회
                                 "/api/user/owned-titles",
-                                "/api/simulation/**").permitAll()
+                                "/api/simulation/**",
+                                "/api/emotions").permitAll()
                         // ===== 페이스로그인 관련 URL 허용 =====
                         .requestMatchers("/api/face/login").permitAll()
                         .requestMatchers("/api/face/register").permitAll()
@@ -171,8 +172,8 @@ public class SecurityConfig implements WebMvcConfigurer {
                         // 로그아웃은 인증된 사용자만 요청 가능 (인가 확인 필요)
                         .requestMatchers("/logout").authenticated()
                         // 관리자 전용 서비스인 경우 ROLE_ADMIN 권한 확인 필요함
-//                        .requestMatchers("/admin/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/notice/delete/*").hasAnyRole("ADMIN")  // 공지 삭제는 ADMIN 만 허용
+                        .requestMatchers(HttpMethod.GET, "/notice/**").permitAll()
+                        .requestMatchers("/admin/**").hasRole("ADMIN")
                         // 나머지 모든 요청은 인증 확인 필요함 (로그인해야 요청할 수 있는 서비스들)
                         .anyRequest().authenticated()
                 )

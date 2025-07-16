@@ -48,10 +48,7 @@ public class JWTFilter extends OncePerRequestFilter {
 
                 || url.startsWith("/seems/api/personality-test/questions")
                 || url.startsWith("/seems/api/personality-test/submit-answers")
-                || url.startsWith("/seems/api/personality-test/results/")
-
                 || url.startsWith("/seems/api/psychological-test/")
-
 
                 // 퀘스트 경로 추가
                 || url.startsWith("/seems/api/quest-rewards") // 뱃지 상점 API
@@ -62,6 +59,9 @@ public class JWTFilter extends OncePerRequestFilter {
                 // ** 시뮬레이션 API 경로 추가 **
                 || url.startsWith("/api/simulation/")
                 || url.startsWith("/seems/api/simulation/")
+
+                // 감정 API 경로 추가 (별도 라인으로 분리)
+                || url.startsWith("/seems/api/emotions")
 
                 // 문자열 비교이기 때문에 실제 요청 경로가 /notice/detail/13일 경우,
                 // "/notice/detail/*".equals("/notice/detail/13") → false가 됩니다.
