@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -23,7 +24,15 @@ public class FaceLoginFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        
+
+        // ✅ 추가된 부분: OPTIONS 메서드 요청은 토큰/페이스 로그인 검사 없이 바로 통과
+        if (HttpMethod.OPTIONS.matches(request.getMethod())) {
+            response.setStatus(HttpServletResponse.SC_OK); // CORS 사전 검증 성공 응답 (200 OK)
+            log.info("FaceLoginFilter: OPTIONS 메서드 요청 통과 - URL: {}", request.getRequestURI());
+            filterChain.doFilter(request, response);
+            return; // 여기서 필터 체인 종료
+        }
+
         String authHeader = request.getHeader("Authorization");
         
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {

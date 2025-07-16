@@ -1,8 +1,11 @@
 package com.test.seems.test.model.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.test.seems.test.jpa.entity.PersonalityTestResultEntity;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+
+import java.time.LocalDateTime;
 
 @Data
 @AllArgsConstructor
@@ -12,7 +15,8 @@ public class PersonalityTestResult {
     private String result;
     private String description;
     private String mbtiTitle;
-
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss", timezone = "Asia/Seoul")
+    private LocalDateTime createdAt;
     /**
      * DTO 자신을 Entity 객체로 변환하는 메서드.
      * Service로부터 추가 정보를 받아와 Entity를 생성합니다.

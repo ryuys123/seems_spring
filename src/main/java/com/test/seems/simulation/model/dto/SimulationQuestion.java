@@ -18,7 +18,7 @@ public class SimulationQuestion {
     private Integer questionNumber;
     private String questionText;
     private List<Option> options; // 선택지 목록
-
+    private Long settingId;
     // 선택지 DTO (내부 클래스)
     @Data
     @NoArgsConstructor
