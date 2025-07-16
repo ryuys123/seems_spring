@@ -159,6 +159,7 @@ public class SecurityConfig implements WebMvcConfigurer {
                                          "/api/personality-test/questions", "/api/personality-test/submit-answers",
                                         "/api/psychological-test/**",
                                 "/api/personality-test/results/**",
+                                "/api/personality-test/history/**",
                                 "/api/quest-rewards/**", // 뱃지 상점 API
                                 "/api/user/points", // 사용자 포인트 조회
                                 "/api/user/stats", // 사용자 통계 조회
