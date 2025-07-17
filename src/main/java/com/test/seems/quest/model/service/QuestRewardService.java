@@ -7,6 +7,7 @@ import com.test.seems.quest.jpa.entity.UserRewardEntity;
 import com.test.seems.quest.jpa.repository.QuestRewardRepository;
 import com.test.seems.quest.jpa.repository.UserPointsRepository;
 import com.test.seems.quest.jpa.repository.UserRewardRepository;
+import com.test.seems.quest.jpa.repository.QuestRepository;
 import com.test.seems.quest.model.dto.QuestRewardDto;
 import com.test.seems.quest.model.dto.PurchaseRequestDto;
 import com.test.seems.quest.model.dto.UserPointsDto;
@@ -28,6 +29,7 @@ public class QuestRewardService {
     private final QuestRewardRepository questRewardRepository;
     private final UserRewardRepository userRewardRepository;
     private final UserPointsRepository userPointsRepository;
+    private final QuestRepository questRepository;
     
     /**
      * 모든 뱃지 보상 목록 조회
@@ -65,11 +67,14 @@ public class QuestRewardService {
         // 전체 뱃지 개수
         long totalTitles = questRewardRepository.count();
         
-        // 임시 데이터 (실제로는 다른 테이블에서 조회해야 함)
+        // 실제 퀘스트 통계 조회
+        Long completedQuests = questRepository.countCompletedQuestsByUserId(userId);
+        Long totalQuests = questRepository.countTotalQuestsByUserId(userId);
+        
         return UserStatsDto.builder()
-                .level(5) // 임시 레벨
-                .completedQuests(12) // 임시 완료 퀘스트 수
-                .totalQuests(20) // 임시 전체 퀘스트 수
+                .level(5) // 임시 레벨 (나중에 레벨 시스템 구현 시 수정)
+                .completedQuests(completedQuests != null ? completedQuests.intValue() : 0)
+                .totalQuests(totalQuests != null ? totalQuests.intValue() : 0)
                 .ownedTitles((int) ownedTitles)
                 .totalTitles((int) totalTitles)
                 .build();
@@ -135,6 +140,23 @@ public class QuestRewardService {
     }
     
     /**
+     * 퀘스트 상점 메인 페이지 데이터 조회
+     */
+    public QuestStoreDto getQuestStoreData(String userId) {
+        UserPointsDto userPoints = getUserPoints(userId);
+        UserStatsDto userStats = getUserStats(userId);
+        List<QuestRewardDto> allRewards = getAllQuestRewards();
+        List<Long> ownedRewardIds = getOwnedRewardIds(userId);
+        
+        return QuestStoreDto.builder()
+                .userPoints(userPoints)
+                .userStats(userStats)
+                .allRewards(allRewards)
+                .ownedRewardIds(ownedRewardIds)
+                .build();
+    }
+    
+    /**
      * Entity를 DTO로 변환
      */
     private QuestRewardDto convertToDto(QuestRewardEntity entity) {
@@ -147,5 +169,17 @@ public class QuestRewardService {
                 .description(entity.getDescription())
                 .imagePath(entity.getImagePath())
                 .build();
+    }
+    
+    /**
+     * 퀘스트 상점 DTO
+     */
+    @lombok.Data
+    @lombok.Builder
+    public static class QuestStoreDto {
+        private UserPointsDto userPoints;
+        private UserStatsDto userStats;
+        private List<QuestRewardDto> allRewards;
+        private List<Long> ownedRewardIds;
     }
 } 
