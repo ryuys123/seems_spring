@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 
 @Slf4j   // Logger 객체 선언임, 별도의 로그 객체 생성구문 필요없음, 레퍼런스는 log 임
@@ -41,11 +42,32 @@ public class ReplyService {
 //    }
 
     public ArrayList<Reply> getRepliesByFaqNo(int faqNo) {
-        List<ReplyEntity> entities = replyRepository.findRepliesByFaqNo(faqNo);
+        List<ReplyEntity> entities = replyRepository.findByFaqNoOrderByReplyNoAsc(faqNo);
         ArrayList<Reply> list = new ArrayList<>();
         for (ReplyEntity entity : entities) {
             list.add(entity.toDto());
         }
         return list;
+    }
+
+    public Reply selectLast() {
+        ReplyEntity entity = replyRepository.findTopByOrderByReplyNoDesc().orElse(null);
+        return entity != null ? entity.toDto() : null;
+    }
+
+    public int insertReply(Reply reply) {
+        // DTO → Entity 변환 후 save
+        ReplyEntity savedEntity = replyRepository.save(reply.toEntity());
+        return savedEntity != null ? 1 : 0;
+    }
+
+    public int deleteReply(int replyNo) {
+        try {
+            replyRepository.deleteById(replyNo);
+            return 1;
+        } catch (Exception e) {
+            log.error("❌ 댓글 삭제 실패: " + e.getMessage());
+            return 0;
+        }
     }
 }
