@@ -14,7 +14,11 @@ public class PsychologicalAnswerRequest {
     private String userId;
     private Long questionId;
     private String userResponseText;
-
+    private int currentStep; // 현재 진행 단계 (예: 1, 2, 3)
+    private int totalSteps;  // 전체 단계 수 (예: 3)
+    private  String testType;
+// : 이미지 기반 심리 검사처럼 사용자가 입력한
+// 자유 텍스트 답변(userResponseText) 을 백엔드로 전송할 때 사용하는 DTO입니다.
     public PsychologyEntity toEntity() {
         return PsychologyEntity.builder()
                 .userId(this.userId)

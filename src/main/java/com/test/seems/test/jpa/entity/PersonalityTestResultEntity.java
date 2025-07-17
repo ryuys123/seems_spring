@@ -5,33 +5,44 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.CreationTimestamp; // @CreationTimestamp 사용 시 필요
 
 import java.time.LocalDateTime;
 
-@Data                   // ✨ Getter, Setter, ToString 등을 포함
-@Builder                // ✨ 객체 생성을 위한 빌더 패턴
+@Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "TB_PERSONALITY_ANALYSIS")
+@Table(name = "TB_PERSONALITY_RESULTS") // ⭐ 테이블명 변경됨
 public class PersonalityTestResultEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "personality_result_generator")
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "personality_results_seq_gen") // ⭐ 제너레이터 이름 변경
     @SequenceGenerator(
-            name = "personality_result_generator",      // ✨ 2. 제너레이터 이름 설정 (위와 동일하게)
-            sequenceName = "TB_PERSONALITY_ANALYSIS_SEQ", // ✨ 3. DB에 만든 시퀀스 이름
-            allocationSize = 1                          // ✨ 4. 한 번에 1씩 증가
+            name = "personality_results_seq_gen",      // ⭐ 제너레이터 이름 설정
+            sequenceName = "SEQ_PERSONALITY_RESULTS_PID", // ⭐ DB에 만든 새로운 시퀀스 이름
+            allocationSize = 1
     )
+    @Column(name = "PERSONALITY_ID") // 컬럼명 명시 (DB 컬럼명과 일치)
     private Long personalityId;
+
+    @Column(name = "USER_ID")
     private String userId;
-    private Long personalityTestId; // ✨ 이 필드를 추가해야 합니다.
+
+    @Column(name = "PERSONALITY_TEST_ID") // TB_PERSONALITY_RESULTS DDL에 이 필드가 있다면 유지
+    private Long personalityTestId;
+
+    @Column(name = "RESULT")
     private String result;
+
+    @Column(name = "DESCRIPTION")
     private String description;
+
+    @Column(name = "MBTI_TITLE")
     private String mbtiTitle;
 
-    @CreationTimestamp
-    @Column(updatable = false)
+    @CreationTimestamp // 엔티티가 처음 저장될 때 자동으로 시간 기록
+    @Column(name = "CREATED_AT", updatable = false) // 한번 기록되면 업데이트 불가
     private LocalDateTime createdAt;
 }
