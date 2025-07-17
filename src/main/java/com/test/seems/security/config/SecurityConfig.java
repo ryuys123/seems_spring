@@ -170,6 +170,8 @@ public class SecurityConfig implements WebMvcConfigurer {
                         .requestMatchers("/api/face/login").permitAll()
                         .requestMatchers("/api/face/register").permitAll()
                         .requestMatchers("/api/face/**").permitAll()
+                        .requestMatchers("/auth/face-login").permitAll()
+                        .requestMatchers("/seems/auth/face-login").permitAll()
                         // 로그아웃은 인증된 사용자만 요청 가능 (인가 확인 필요)
                         .requestMatchers("/logout").authenticated()
                         // 관리자 전용 서비스인 경우 ROLE_ADMIN 권한 확인 필요함
