@@ -41,6 +41,8 @@ public class JWTFilter extends OncePerRequestFilter {
                 || url.equals("/seems/user/signup")
                 || url.equals("/seems/user/idchk")
                 || url.equals("/seems/api/face-signup")
+                || url.startsWith("/seems/api/face/")
+                || url.startsWith("/seems/auth/face")
 
                 || url.startsWith("/seems/api/psychological-test/image-question") // 이미지 문항 조회
                 || url.startsWith("/seems/api/psychological-test/submit-answer") // 답변 제출
@@ -92,6 +94,8 @@ public class JWTFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);  // 다음 단계로 넘김
             return;
         }
+        
+        log.info("토큰 검사 대상 URL: " + requestURI);
 
         // 클라이언트 쪽에서 토큰 저장 방식을 미리 정해 놓고 맞춰야 함
         String accessTokenHeader = request.getHeader("Authorization");

@@ -5,6 +5,8 @@ import com.test.seems.face.model.dto.FaceLoginRequest;
 import com.test.seems.face.model.dto.FaceLoginResponse;
 import com.test.seems.face.model.dto.FaceRegistrationRequest;
 import com.test.seems.face.model.dto.FaceRegistrationResponse;
+import com.test.seems.face.model.dto.FaceSignupRequest;
+import com.test.seems.face.model.dto.FaceSignupResponse;
 import com.test.seems.face.model.service.FaceLoginService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,10 +27,13 @@ public class FaceLoginController {
      * 페이스 로그인
      */
     @PostMapping("/login")
-    public ResponseEntity<FaceLoginResponse> login(@RequestBody FaceLoginRequest request) {
-        log.info("페이스 로그인 요청");
+    public ResponseEntity<FaceLoginResponse> faceLogin(@RequestBody FaceLoginRequest request) {
+        log.info("페이스 로그인 요청: 얼굴 인식 시작");
+        log.info("요청 데이터 - faceImageData 길이: {}, faceName: {}", 
+                request.getFaceImageData() != null ? request.getFaceImageData().length() : "null", 
+                request.getFaceName());
         
-        FaceLoginResponse response = faceLoginService.login(request);
+        FaceLoginResponse response = faceLoginService.faceLogin(request);
         
         if (response.isSuccess()) {
             return ResponseEntity.ok(response);
@@ -38,7 +43,23 @@ public class FaceLoginController {
     }
     
     /**
-     * 페이스 등록
+     * 페이스 회원가입 (사용자 생성 + 페이스 등록)
+     */
+    @PostMapping("/signup")
+    public ResponseEntity<FaceSignupResponse> faceSignup(@RequestBody FaceSignupRequest request) {
+        log.info("페이스 회원가입 요청: 사용자 {}", request.getUserId());
+        
+        FaceSignupResponse response = faceLoginService.faceSignup(request);
+        
+        if (response.isSuccess()) {
+            return ResponseEntity.ok(response);
+        } else {
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+    
+    /**
+     * 페이스 등록 (기존 사용자에게 페이스 추가)
      */
     @PostMapping("/register")
     public ResponseEntity<FaceRegistrationResponse> registerFace(@RequestBody FaceRegistrationRequest request) {
