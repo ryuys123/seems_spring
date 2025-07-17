@@ -94,4 +94,19 @@ public class QuestRewardController {
             return ResponseEntity.internalServerError().body("구매 중 오류가 발생했습니다.");
         }
     }
+    
+    /**
+     * 퀘스트 상점 메인 페이지 데이터 조회
+     */
+    @GetMapping("/quest-store/{userId}")
+    public ResponseEntity<QuestRewardService.QuestStoreDto> getQuestStoreData(@PathVariable String userId) {
+        try {
+            QuestRewardService.QuestStoreDto storeData = questRewardService.getQuestStoreData(userId);
+            return ResponseEntity.ok(storeData);
+        } catch (Exception e) {
+            log.error("Failed to get quest store data for userId: {}", userId, e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+    
 } 
