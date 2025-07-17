@@ -6,7 +6,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.time.LocalDateTime;
-
+// : mbtiTitle, result, description 등을 포함하고 PersonalityTestResultEntity로 변환하는 것을 보아
+// MBTI와 같은 특정 '성격 테스트'의 최종 결과를 나타내는 DTO입니다
 @Data
 @AllArgsConstructor
 public class PersonalityTestResult {
