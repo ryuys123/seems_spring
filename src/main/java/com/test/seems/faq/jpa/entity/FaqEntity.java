@@ -25,6 +25,9 @@ public class FaqEntity {
     @Column(name="TITLE", nullable=false)
     private String title;
     @Column(name="CATEGORY", nullable=false)
+
+
+
     private String category;
     @Column(name="CONTENT", nullable=false)
     private String content;
