@@ -26,7 +26,6 @@ public class Faq {
     private String category;
     @NotBlank
     private String content;
-    private String importance;
     private String status;
     @JsonFormat(pattern = "yyyy-MM-dd", timezone = "Asia/Seoul")
     private Date faqDate;

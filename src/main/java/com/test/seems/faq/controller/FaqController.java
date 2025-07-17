@@ -64,6 +64,7 @@ public class FaqController {
         Map<String, Object> map = new HashMap<>();
         map.put("list", list);
         map.put("paging", paging);
+            System.out.println("조회한문의글갯수 : " + list.stream().count());
 
         return ResponseEntity.ok(map);
     } catch (Exception e) {
@@ -76,11 +77,11 @@ public class FaqController {
     //Faq글 상세보기 요청 처리용 : SELECT 쿼리문 실행 요청임 => GetMapping 임
     @GetMapping("/faq/detail/{faqNo}")
     public ResponseEntity<Faq> FaqDetailMethod(
-            @PathVariable int FaqNo){
-        log.info("/Faq/detail 요청 : " + FaqNo);
-      
+            @PathVariable int faqNo){
+        log.info("/Faq/detail 요청 : " + faqNo);
+
         // 정보 불러오기
-        Faq Faq = FaqService.selectFaq(FaqNo);
+        Faq Faq = FaqService.selectFaq(faqNo);
 
         return Faq != null ? new ResponseEntity<>(Faq, HttpStatus.OK): new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
@@ -97,7 +98,7 @@ public class FaqController {
         log.info("/faq : " + Faq);
 
         Map<String, Object> map = new HashMap<>();
-        
+
         //새로 등록할 Faq글 번호는 현재 마지막 등록글 번호에 + 1 한 값으로 저장 처리함
         Faq.setFaqNo(FaqService.selectLast().getFaqNo() + 1);
 
@@ -116,9 +117,9 @@ public class FaqController {
     // Faq글 삭제 요청 처리용 : delete 쿼리문 실행 요청임 => 전송방식 delete => @DeleteMapping
     @DeleteMapping("/faq/{faqNo}")
     public ResponseEntity<String> FaqDeleteMethod(
-            @PathVariable int FaqNo,
+            @PathVariable int faqNo,
             @RequestParam(name="rfile", required=false) String renameFileName) {
-        if(FaqService.deleteFaq(FaqNo) > 0) {
+        if(FaqService.deleteFaq(faqNo) > 0) {
             return ResponseEntity.ok("삭제 성공!");  //ResponseEntity<String>
         } else {  // Faq글 삭제 실패시
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Faq글 삭제 실패!");
@@ -129,18 +130,18 @@ public class FaqController {
     // update 쿼리문 실행 요청임 => 전송방식은 PUT 임 => @PutMapping 으로 지정해야 함
     @PutMapping(value="/faq/{faqNo}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<String> FaqUpdateMethod(
-            @PathVariable int FaqNo,
-            @ModelAttribute Faq Faq,
+            @PathVariable int faqNo,
+            @ModelAttribute Faq faq,
             @RequestParam(name="deleteFlag", required=false) String delFlag){
-                log.info("FaqUpdateMethod : " + Faq);
-                
-        if(FaqService.updateFaq(Faq) > 0) {
+                log.info("FaqUpdateMethod : " + faq);
+
+        if(FaqService.updateFaq(faq) > 0) {
             // Faq글 수정 성공시, 관리자 상세보기 페이지로 이동 처리
             return ResponseEntity.ok("Faq 수정 성공");
         } else {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Faq 수정 실패!");
         }
     }
-    
+
 
 }

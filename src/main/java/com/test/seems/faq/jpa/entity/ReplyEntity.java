@@ -22,12 +22,6 @@ public class ReplyEntity {
     private int replyNo;
     @Column(name="INQUIRY_ID")
     private int faqNo;
-    @Column(name="PARENT_COMMENT_ID")
-    private int parentCommentNo;
-    @Column(name="COMMENT_LEVEL")
-    private int commentLevel;
-    @Column(name="COMMENT_SEQ")
-    private int commentSeq;
     @Column(name="USER_ID", nullable=false)
     private String userid;
     @Column(name="CONTENT", nullable=false)
@@ -52,9 +46,6 @@ public class ReplyEntity {
         return Reply.builder()
                 .replyNo(replyNo)
                 .faqNo(faqNo)
-                .parentCommentNo(parentCommentNo)
-                .commentLevel(commentLevel)
-                .commentSeq(commentSeq)
                 .userid(userid)
                 .content(content)
                 .replyDate(replyDate)

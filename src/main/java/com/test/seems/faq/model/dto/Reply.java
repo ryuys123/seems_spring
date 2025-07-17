@@ -19,9 +19,6 @@ public class Reply {
     @NotBlank
     private int replyNo;
     private int faqNo;
-    private int parentCommentNo;
-    private int commentLevel;
-    private int commentSeq;
     @NotBlank
     private String userid;
     @NotBlank
@@ -35,9 +32,6 @@ public class Reply {
         return ReplyEntity.builder()
                 .replyNo(replyNo)
                 .faqNo(faqNo)
-                .parentCommentNo(parentCommentNo)
-                .commentLevel(commentLevel)
-                .commentSeq(commentSeq)
                 .userid(userid)
                 .content(content)
                 .replyDate(replyDate)
