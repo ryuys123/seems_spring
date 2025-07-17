@@ -7,11 +7,9 @@ import com.test.seems.faq.model.service.ReplyService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 import java.util.ArrayList;
@@ -40,6 +38,42 @@ public class ReplyController {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
 
+        }
+    }
+
+    // 새 Reply 등록 요청 처리용
+    // insert 쿼리문 실행 요청임 => 전송방식 POST 임 => @PostMapping 지정해야 함
+    @PostMapping(value = "/replies")
+    public ResponseEntity<Reply> ReplyInsertMethod(
+            @RequestBody Reply reply) {
+
+        log.info("📥 댓글 등록 요청: " + reply);
+
+        // 1. 댓글 번호 자동 지정
+        reply.setReplyNo(ReplyService.selectLast().getReplyNo() + 1);
+
+        // 2. insert 시도
+        if (ReplyService.insertReply(reply) > 0) {
+            return ResponseEntity.status(HttpStatus.CREATED).body(reply);
+        } else {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    // Reply 삭제 요청 처리용
+    @DeleteMapping("/faq/detail/{faqNo}/replies/{replyNo}")
+    public ResponseEntity<Void> deleteReply(
+            @PathVariable int faqNo,
+            @PathVariable int replyNo) {
+
+        log.info("🗑️ 댓글 삭제 요청: replyNo = {}", replyNo);
+
+        int result = ReplyService.deleteReply(replyNo);
+
+        if (result > 0) {
+            return ResponseEntity.noContent().build();  // 204 No Content
+        } else {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 }

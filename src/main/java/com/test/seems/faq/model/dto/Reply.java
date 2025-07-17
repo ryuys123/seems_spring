@@ -16,7 +16,6 @@ import com.test.seems.faq.jpa.entity.ReplyEntity;
 @NoArgsConstructor
 @Builder
 public class Reply {
-    @NotBlank
     private int replyNo;
     private int faqNo;
     @NotBlank
