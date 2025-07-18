@@ -33,6 +33,9 @@ public class UserRewardEntity {
     
     @Column(name = "IS_APPLIED")
     private Integer isApplied;
+
+    @Column(name = "IS_EQUIPPED")
+    private Integer isEquipped;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "REWARD_ID", insertable = false, updatable = false)

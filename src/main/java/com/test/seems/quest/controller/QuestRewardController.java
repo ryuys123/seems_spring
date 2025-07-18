@@ -66,33 +66,51 @@ public class QuestRewardController {
     }
     
     /**
-     * 사용자가 보유한 뱃지 ID 목록 조회
+     * (변경) 내 뱃지 목록 조회 - rewardId, isEquipped 포함
      */
     @GetMapping("/user/owned-titles")
-    public ResponseEntity<List<Long>> getOwnedRewardIds(@RequestParam String userId) {
+    public ResponseEntity<List<Map<String, Object>>> getOwnedRewardIdsWithEquipped(@RequestParam String userId) {
         try {
-            List<Long> ownedRewardIds = questRewardService.getOwnedRewardIds(userId);
-            return ResponseEntity.ok(ownedRewardIds);
+            List<Map<String, Object>> ownedBadges = questRewardService.getOwnedRewardIdsWithEquipped(userId);
+            return ResponseEntity.ok(ownedBadges);
         } catch (Exception e) {
             log.error("Failed to get owned reward ids for userId: {}", userId, e);
             return ResponseEntity.internalServerError().build();
         }
     }
-    
+
     /**
-     * 뱃지 구매
+     * 뱃지 장착 API
+     */
+    @PostMapping("/user/equip-badge")
+    public ResponseEntity<?> equipBadge(@RequestParam String userId, @RequestBody Map<String, Object> request) {
+        try {
+            Long rewardId = Long.valueOf(request.get("rewardId").toString());
+            questRewardService.equipBadge(userId, rewardId);
+            // 장착 후 최신 ownedItems 목록 반환
+            List<Map<String, Object>> ownedBadges = questRewardService.getOwnedRewardIdsWithEquipped(userId);
+            return ResponseEntity.ok(ownedBadges);
+        } catch (Exception e) {
+            log.error("Failed to equip badge for userId: {}, rewardId: {}", userId, request.get("rewardId"), e);
+            return ResponseEntity.internalServerError().body("뱃지 장착 중 오류가 발생했습니다.");
+        }
+    }
+
+    /**
+     * (변경) 뱃지 구매 - isEquipped 포함 응답
      */
     @PostMapping("/quest-rewards/purchase")
-    public ResponseEntity<String> purchaseReward(@RequestParam String userId, @RequestBody PurchaseRequestDto request) {
+    public ResponseEntity<Map<String, Object>> purchaseReward(@RequestParam String userId, @RequestBody Map<String, Object> request) {
         try {
-            questRewardService.purchaseReward(userId, request);
-            return ResponseEntity.ok("뱃지 구매가 완료되었습니다.");
+            Long rewardId = Long.valueOf(request.get("rewardId").toString());
+            Map<String, Object> result = questRewardService.purchaseRewardWithEquipped(userId, rewardId);
+            return ResponseEntity.ok(result);
         } catch (QuestException e) {
-            log.warn("Purchase failed for userId: {}, rewardId: {}, reason: {}", userId, request.getRewardId(), e.getMessage());
-            return ResponseEntity.badRequest().body(e.getMessage());
+            log.warn("Purchase failed for userId: {}, rewardId: {}, reason: {}", userId, request.get("rewardId"), e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            log.error("Failed to purchase reward for userId: {}, rewardId: {}", userId, request.getRewardId(), e);
-            return ResponseEntity.internalServerError().body("구매 중 오류가 발생했습니다.");
+            log.error("Failed to purchase reward for userId: {}, rewardId: {}", userId, request.get("rewardId"), e);
+            return ResponseEntity.internalServerError().body(Map.of("error", "구매 중 오류가 발생했습니다."));
         }
     }
     
@@ -174,5 +192,17 @@ public class QuestRewardController {
                     request.get("userId"), request.get("points"), e);
             return ResponseEntity.internalServerError().body("포인트 업데이트 중 오류가 발생했습니다.");
         }
+    }
+
+    /**
+     * 장착중인 뱃지 1개 + 상세정보 반환
+     */
+    @GetMapping("/user/equipped-badge")
+    public ResponseEntity<Map<String, Object>> getEquippedBadge(@RequestParam String userId) {
+        Map<String, Object> badge = questRewardService.getEquippedBadge(userId);
+        if (badge == null) {
+            return ResponseEntity.ok().body(null);
+        }
+        return ResponseEntity.ok(badge);
     }
 } 
