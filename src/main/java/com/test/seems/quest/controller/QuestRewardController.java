@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
@@ -109,4 +110,69 @@ public class QuestRewardController {
         }
     }
     
+    /**
+     * 포인트 추가
+     */
+    @PostMapping("/user/points/add")
+    public ResponseEntity<String> addPoints(@RequestBody Map<String, Object> request) {
+        try {
+            String userId = (String) request.get("userId");
+            Integer points = Integer.valueOf(request.get("points").toString());
+            
+            questRewardService.addPoints(userId, points);
+            return ResponseEntity.ok("포인트가 추가되었습니다.");
+        } catch (QuestException e) {
+            log.warn("Points addition failed for userId: {}, points: {}, reason: {}", 
+                    request.get("userId"), request.get("points"), e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            log.error("Failed to add points for userId: {}, points: {}", 
+                    request.get("userId"), request.get("points"), e);
+            return ResponseEntity.internalServerError().body("포인트 추가 중 오류가 발생했습니다.");
+        }
+    }
+    
+    /**
+     * 포인트 차감
+     */
+    @PostMapping("/user/points/deduct")
+    public ResponseEntity<String> deductPoints(@RequestBody Map<String, Object> request) {
+        try {
+            String userId = (String) request.get("userId");
+            Integer points = Integer.valueOf(request.get("points").toString());
+            
+            questRewardService.deductPoints(userId, points);
+            return ResponseEntity.ok("포인트가 차감되었습니다.");
+        } catch (QuestException e) {
+            log.warn("Points deduction failed for userId: {}, points: {}, reason: {}", 
+                    request.get("userId"), request.get("points"), e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            log.error("Failed to deduct points for userId: {}, points: {}", 
+                    request.get("userId"), request.get("points"), e);
+            return ResponseEntity.internalServerError().body("포인트 차감 중 오류가 발생했습니다.");
+        }
+    }
+    
+    /**
+     * 포인트 업데이트 (통합)
+     */
+    @PutMapping("/user/points")
+    public ResponseEntity<String> updatePoints(@RequestBody Map<String, Object> request) {
+        try {
+            String userId = (String) request.get("userId");
+            Integer points = Integer.valueOf(request.get("points").toString());
+            
+            questRewardService.updatePoints(userId, points);
+            return ResponseEntity.ok("포인트가 업데이트되었습니다.");
+        } catch (QuestException e) {
+            log.warn("Points update failed for userId: {}, points: {}, reason: {}", 
+                    request.get("userId"), request.get("points"), e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            log.error("Failed to update points for userId: {}, points: {}", 
+                    request.get("userId"), request.get("points"), e);
+            return ResponseEntity.internalServerError().body("포인트 업데이트 중 오류가 발생했습니다.");
+        }
+    }
 } 

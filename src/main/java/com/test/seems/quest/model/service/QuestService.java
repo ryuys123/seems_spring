@@ -147,6 +147,49 @@ public class QuestService {
     }
     
     /**
+     * 퀘스트 삭제
+     */
+    @Transactional
+    public void deleteQuest(String userId, Long questId) {
+        QuestEntity quest = questRepository.findById(questId)
+                .orElseThrow(() -> new QuestException("퀘스트를 찾을 수 없습니다."));
+        
+        if (!quest.getUserId().equals(userId)) {
+            throw new QuestException("해당 퀘스트에 대한 권한이 없습니다.");
+        }
+        
+        questRepository.delete(quest);
+        log.info("Quest deleted - userId: {}, questId: {}", userId, questId);
+    }
+    
+    /**
+     * 퀘스트 업데이트
+     */
+    @Transactional
+    public QuestDto updateQuest(String userId, Long questId, String questName, Integer questPoints) {
+        QuestEntity quest = questRepository.findById(questId)
+                .orElseThrow(() -> new QuestException("퀘스트를 찾을 수 없습니다."));
+        
+        if (!quest.getUserId().equals(userId)) {
+            throw new QuestException("해당 퀘스트에 대한 권한이 없습니다.");
+        }
+        
+        // 퀘스트 정보 업데이트
+        if (questName != null && !questName.trim().isEmpty()) {
+            quest.setQuestName(questName.trim());
+        }
+        if (questPoints != null) {
+            quest.setQuestPoints(questPoints);
+        }
+        
+        QuestEntity updatedQuest = questRepository.save(quest);
+        log.info("Quest updated - userId: {}, questId: {}, questName: {}, questPoints: {}", 
+                userId, questId, quest.getQuestName(), quest.getQuestPoints());
+        
+        return convertToDto(updatedQuest);
+    }
+
+    /**
      * Entity를 DTO로 변환
      */
     private QuestDto convertToDto(QuestEntity entity) {

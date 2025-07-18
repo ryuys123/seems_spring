@@ -157,6 +157,74 @@ public class QuestRewardService {
     }
     
     /**
+     * 포인트 추가
+     */
+    @Transactional
+    public void addPoints(String userId, Integer points) {
+        if (points <= 0) {
+            throw new QuestException("추가할 포인트는 0보다 커야 합니다.");
+        }
+        
+        int updatedRows = userPointsRepository.addPoints(userId, points);
+        if (updatedRows == 0) {
+            // 사용자가 포인트 기록이 없는 경우 새로 생성
+            UserPointsEntity newUserPoints = UserPointsEntity.builder()
+                    .userId(userId)
+                    .points(points)
+                    .build();
+            userPointsRepository.save(newUserPoints);
+        }
+        
+        log.info("Points added - userId: {}, points: {}", userId, points);
+    }
+    
+    /**
+     * 포인트 차감
+     */
+    @Transactional
+    public void deductPoints(String userId, Integer points) {
+        if (points <= 0) {
+            throw new QuestException("차감할 포인트는 0보다 커야 합니다.");
+        }
+        
+        // 현재 포인트 확인
+        UserPointsEntity userPoints = userPointsRepository.findByUserId(userId)
+                .orElseThrow(() -> new QuestException("사용자의 포인트 정보를 찾을 수 없습니다."));
+        
+        if (userPoints.getPoints() < points) {
+            throw new QuestException("보유 포인트가 부족합니다. 보유: " + userPoints.getPoints() + ", 차감: " + points);
+        }
+        
+        int updatedRows = userPointsRepository.deductPoints(userId, points);
+        if (updatedRows == 0) {
+            throw new QuestException("포인트 차감에 실패했습니다.");
+        }
+        
+        log.info("Points deducted - userId: {}, points: {}", userId, points);
+    }
+    
+    /**
+     * 포인트 업데이트 (통합)
+     */
+    @Transactional
+    public void updatePoints(String userId, Integer points) {
+        if (points < 0) {
+            throw new QuestException("포인트는 0 이상이어야 합니다.");
+        }
+        
+        UserPointsEntity userPoints = userPointsRepository.findByUserId(userId)
+                .orElse(UserPointsEntity.builder()
+                        .userId(userId)
+                        .points(0)
+                        .build());
+        
+        userPoints.setPoints(points);
+        userPointsRepository.save(userPoints);
+        
+        log.info("Points updated - userId: {}, new points: {}", userId, points);
+    }
+    
+    /**
      * Entity를 DTO로 변환
      */
     private QuestRewardDto convertToDto(QuestRewardEntity entity) {
