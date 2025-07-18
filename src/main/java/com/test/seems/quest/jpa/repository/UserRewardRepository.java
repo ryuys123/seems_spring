@@ -2,6 +2,7 @@ package com.test.seems.quest.jpa.repository;
 
 import com.test.seems.quest.jpa.entity.UserRewardEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -32,4 +33,23 @@ public interface UserRewardRepository extends JpaRepository<UserRewardEntity, Lo
      * 사용자가 보유한 뱃지 개수 조회
      */
     long countByUserId(String userId);
+
+    /**
+     * 해당 유저의 모든 뱃지 isEquipped=0으로 초기화
+     */
+    @Modifying
+    @Query("UPDATE UserRewardEntity ur SET ur.isEquipped = 0 WHERE ur.userId = :userId")
+    void updateAllEquippedToFalse(@Param("userId") String userId);
+
+    /**
+     * 특정 뱃지 isEquipped=1로 변경
+     */
+    @Modifying
+    @Query("UPDATE UserRewardEntity ur SET ur.isEquipped = :isEquipped WHERE ur.userId = :userId AND ur.rewardId = :rewardId")
+    void updateEquippedByUserIdAndRewardId(@Param("userId") String userId, @Param("rewardId") Long rewardId, @Param("isEquipped") Integer isEquipped);
+
+    /**
+     * 장착중인 뱃지 1개 조회
+     */
+    Optional<UserRewardEntity> findFirstByUserIdAndIsEquipped(String userId, Integer isEquipped);
 } 

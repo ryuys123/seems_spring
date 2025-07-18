@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -86,20 +87,73 @@ public class QuestRewardService {
     public List<Long> getOwnedRewardIds(String userId) {
         return userRewardRepository.findRewardIdsByUserId(userId);
     }
+
+    /**
+     * (변경) 내 뱃지 목록 조회 - rewardId, isEquipped 포함
+     */
+    public List<Map<String, Object>> getOwnedRewardIdsWithEquipped(String userId) {
+        return userRewardRepository.findByUserId(userId).stream()
+                .map(entity -> {
+                    Map<String, Object> map = new java.util.HashMap<>();
+                    map.put("rewardId", entity.getRewardId());
+                    map.put("isEquipped", entity.getIsEquipped() != null && entity.getIsEquipped() == 1);
+                    return map;
+                })
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 뱃지 장착
+     */
+    @Transactional
+    public void equipBadge(String userId, Long rewardId) {
+        // 1. 해당 유저의 모든 뱃지 isEquipped=0
+        userRewardRepository.updateAllEquippedToFalse(userId);
+        // 2. 선택한 rewardId만 isEquipped=1
+        userRewardRepository.updateEquippedByUserIdAndRewardId(userId, rewardId, 1);
+        log.info("Badge equipped - userId: {}, rewardId: {}", userId, rewardId);
+    }
+
+    /**
+     * (변경) 뱃지 구매 - isEquipped 포함 응답
+     */
+    @Transactional
+    public Map<String, Object> purchaseRewardWithEquipped(String userId, Long rewardId) {
+        if (rewardId == null) {
+            throw new QuestException("rewardId가 null입니다.");
+        }
+        // 이미 보유한 뱃지 체크 (여기서도 한 번 더 체크)
+        boolean alreadyOwned = userRewardRepository.findByUserIdAndRewardId(userId, rewardId).isPresent();
+        if (alreadyOwned) {
+            log.warn("User {} already owns reward {} (controller-level check)", userId, rewardId);
+            throw new QuestException("이미 보유한 뱃지입니다.");
+        }
+        // 기존 구매 로직 재사용
+        PurchaseRequestDto dto = new PurchaseRequestDto();
+        dto.setRewardId(rewardId);
+        purchaseReward(userId, dto);
+        // 구매 후 isEquipped=false로 응답
+        return Map.of(
+                "rewardId", rewardId,
+                "isEquipped", false
+        );
+    }
     
     /**
      * 뱃지 구매
      */
     @Transactional
     public void purchaseReward(String userId, PurchaseRequestDto request) {
+        if (request == null || request.getRewardId() == null) {
+            throw new QuestException("rewardId가 null입니다.");
+        }
         // 뱃지 정보 조회
         QuestRewardEntity reward = questRewardRepository.findById(request.getRewardId())
                 .orElseThrow(() -> new QuestException("존재하지 않는 뱃지입니다."));
-        
         // 이미 보유한 뱃지인지 확인 (더 강력한 체크)
         boolean alreadyOwned = userRewardRepository.findByUserIdAndRewardId(userId, request.getRewardId()).isPresent();
         if (alreadyOwned) {
-            log.warn("User {} already owns reward {}", userId, request.getRewardId());
+            log.warn("User {} already owns reward {} (service-level check)", userId, request.getRewardId());
             throw new QuestException("이미 보유한 뱃지입니다.");
         }
         
@@ -128,6 +182,7 @@ public class QuestRewardService {
                     .rewardId(reward.getRewardId())
                     .acquiredAt(LocalDateTime.now())
                     .isApplied(0)
+                    .isEquipped(0)
                     .build();
             
             userRewardRepository.save(userReward);
@@ -222,6 +277,26 @@ public class QuestRewardService {
         userPointsRepository.save(userPoints);
         
         log.info("Points updated - userId: {}, new points: {}", userId, points);
+    }
+    
+    /**
+     * 장착중인 뱃지 1개 + 상세정보 반환
+     */
+    public Map<String, Object> getEquippedBadge(String userId) {
+        return userRewardRepository.findFirstByUserIdAndIsEquipped(userId, 1)
+                .map(entity -> {
+                    QuestRewardEntity reward = questRewardRepository.findById(entity.getRewardId()).orElse(null);
+                    Map<String, Object> map = new java.util.HashMap<>();
+                    map.put("rewardId", entity.getRewardId());
+                    map.put("isEquipped", true);
+                    if (reward != null) {
+                        map.put("titleReward", reward.getTitleReward());
+                        map.put("imagePath", reward.getImagePath());
+                        map.put("questName", reward.getQuestName());
+                    }
+                    return map;
+                })
+                .orElse(null);
     }
     
     /**
