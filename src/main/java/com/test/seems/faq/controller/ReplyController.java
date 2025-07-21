@@ -23,6 +23,8 @@ import java.util.Map;
 public class ReplyController {
 
     private final ReplyService ReplyService;
+    private final FaqService faqService;
+
 
     @GetMapping("/faq/detail/{faqNo}/replies")
     public ResponseEntity<ArrayList<Reply>> getReplies(@PathVariable int faqNo, Principal principal) {
@@ -52,8 +54,16 @@ public class ReplyController {
         // 1. 댓글 번호 자동 지정
         reply.setReplyNo(ReplyService.selectLast().getReplyNo() + 1);
 
-        // 2. insert 시도
+        // 2. 댓글 등록 시도
         if (ReplyService.insertReply(reply) > 0) {
+
+            // 3. 마지막 작성자가 누구인지 판단
+            String commenter = reply.getUserid();
+            String newStatus = "user001".equals(commenter) ? "ANSWERED" : "PENDING";
+
+            // 4. 상태 + 날짜 모두 업데이트 (관리자/사용자 관계없이)
+            faqService.updateFaqStatusAndReDate(reply.getFaqNo(), newStatus);
+
             return ResponseEntity.status(HttpStatus.CREATED).body(reply);
         } else {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
