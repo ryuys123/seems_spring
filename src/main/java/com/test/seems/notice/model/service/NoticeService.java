@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.test.seems.notice.jpa.entity.NoticeEntity;
@@ -263,24 +264,32 @@ public class NoticeService  {
 		return entityOptional.isPresent() ? entityOptional.get().toDto() : null;
 	}
 
-	// importance impEndDate 지나면 N으로 변경
-	@Scheduled(cron = "0 0 0 * * *") // 매일 자정에 실행
-	@Transactional
+	// 매일 자정에 중요공지 종료 처리
+	@Scheduled(cron = "0 0 0 * * *") // 매일 자정 실행
 	public void updateExpiredImportance() {
-		LocalDate today = LocalDate.now();              // 오늘 날짜 (LocalDate)
-		Date todaySql = Date.valueOf(today);            // java.sql.Date로 변환 (DB용)
-
-		noticeRepository.findByImportanceAndImpEndDateBefore("Y", todaySql)
-				.forEach(entity -> {
-					entity.setImportance("N");
-					noticeRepository.save(entity);
-				});
+		doUpdateImportance();
 	}
 
+	// 서버 시작 시에도 실행되게 추가
+	@PostConstruct
+	public void initImportanceCheckOnStartup() {
+		log.info("🕒 서버 시작 시 중요공지 상태 갱신 로직 실행");
+		doUpdateImportance();
+	}
 
+	// 공통 로직 메서드로 분리
+	private void doUpdateImportance() {
+		LocalDate today = LocalDate.now();
+		Date todaySql = Date.valueOf(today);
+
+		List<NoticeEntity> expiredList =
+				noticeRepository.findByImportanceAndImpEndDateBefore("Y", todaySql);
+
+		for (NoticeEntity entity : expiredList) {
+			entity.setImportance("N");
+			noticeRepository.save(entity);
+		}
+
+		log.info("✅ 중요공지 'Y→N' 갱신된 개수: {}", expiredList.size());
+	}
 }
-
-
-
-
-
