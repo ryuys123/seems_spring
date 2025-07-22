@@ -43,6 +43,9 @@ public class JWTFilter extends OncePerRequestFilter {
                 || url.equals("/seems/api/face-signup")
                 || url.startsWith("/seems/api/face/")
                 || url.startsWith("/seems/auth/face")
+                || url.equals("/api/face/login")
+                || url.equals("/api/face/register")
+                || url.equals("/api/face/signup")
 
                 || url.startsWith("/seems/api/psychological-test/image-question") // 이미지 문항 조회
                 || url.startsWith("/seems/api/psychological-test/submit-answer") // 답변 제출
@@ -119,10 +122,36 @@ public class JWTFilter extends OncePerRequestFilter {
 
                     // AccessToken에서 사용자 이름 추출 및 인증 정보 설정
                     String username = jwtUtil.getUseridFromToken(accessToken);
-                    UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-                    UsernamePasswordAuthenticationToken authenticationToken =
-                            new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-                    SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+                    
+                    // 페이스 로그인 토큰인지 확인
+                    String authType = jwtUtil.getAuthTypeFromToken(accessToken);
+                    log.info("JWT 토큰 인증 타입: {}, 사용자: {}", authType, username);
+                    
+                    UserDetails userDetails = null;
+                    try {
+                        userDetails = userDetailsService.loadUserByUsername(username);
+                    } catch (Exception e) {
+                        log.warn("UserDetails 조회 실패: {}", e.getMessage());
+                        // 페이스 로그인 또는 일반 로그인의 경우 간단한 인증 객체 생성
+                        if ("FACE".equals(authType) || authType == null) {
+                            userDetails = org.springframework.security.core.userdetails.User.builder()
+                                    .username(username)
+                                    .password("") // 페이스 로그인은 비밀번호 검증 불필요
+                                    .roles("USER") // 기본 역할
+                                    .build();
+                        }
+                    }
+                    
+                    if (userDetails != null) {
+                        UsernamePasswordAuthenticationToken authenticationToken =
+                                new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                        SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+                    } else {
+                        log.error("UserDetails가 null입니다. 사용자: {}", username);
+                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                        response.getWriter().write("{\"error\":\"invalid user\"}");
+                        return;
+                    }
 
                 // RefreshToken 만료, AccessToken 유효
                 if (!jwtUtil.isTokenExpired(accessToken) && jwtUtil.isTokenExpired(refreshToken)) {

@@ -38,7 +38,7 @@ public class SecurityConfig implements WebMvcConfigurer {
     private final CustomUserDetailsService userDetailsService;
     private final UserRepository userRepository;   // 아래의 필터 추가 부분에 LoginFilter 생성자 사용에 필요해서 준비한 것임
     private final RefreshService refreshService; // LoginFilter 생성자에 필요해서 준비함
-    
+
     // 멤버변수에 final 사용하면, 매개변수 있는 생성자로 의존성 주입 처리해야 함
     // @RequiredArgsConstructor 로 대신해도 됨
     public SecurityConfig(JWTUtil jwtUtil, CustomUserDetailsService userDetailsService,

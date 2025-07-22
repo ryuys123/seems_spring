@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class FaceLoginResponse {
-    
+
     /**
      * 로그인 성공 여부
      */
