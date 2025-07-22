@@ -4,6 +4,7 @@ import com.test.seems.common.Paging;
 import com.test.seems.common.Search;
 import com.test.seems.user.model.dto.User;
 import com.test.seems.user.model.dto.UserInfoResponse;
+import com.test.seems.user.model.dto.UserDeleteRequest;
 import com.test.seems.user.model.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -52,11 +53,87 @@ public class UserController {
     @PutMapping("user/info")
     public ResponseEntity<?> updateUserInfo(@RequestBody UserInfoResponse req, Authentication authentication) {
         String userId = authentication.getName();
-        boolean result = userService.updateUserInfo(userId, req);
-        if (result) {
-            return ResponseEntity.ok().build();
-        } else {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("수정 실패");
+        
+        try {
+            boolean result = userService.updateUserInfo(userId, req);
+            if (result) {
+                // 비밀번호 변경이 포함된 경우와 일반 정보 수정을 구분
+                boolean isPasswordChange = req.getCurrentPassword() != null && 
+                                         req.getNewPassword() != null && 
+                                         req.getConfirmPassword() != null;
+                
+                if (isPasswordChange) {
+                    return ResponseEntity.ok().body("비밀번호가 성공적으로 변경되었습니다.");
+                } else {
+                    return ResponseEntity.ok().body("프로필이 성공적으로 수정되었습니다.");
+                }
+            } else {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("수정 실패");
+            }
+        } catch (Exception e) {
+            log.error("사용자 정보 수정 중 오류 발생: userId={}, error={}", userId, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("서버 오류가 발생했습니다.");
+        }
+    }
+
+    /**
+     * 비밀번호 확인 API (회원 탈퇴용)
+     */
+    @PostMapping("/user/verify-password")
+    public ResponseEntity<?> verifyPassword(@RequestBody Map<String, String> request, Authentication authentication) {
+        String userId = authentication.getName();
+        String password = request.get("password");
+        
+        if (password == null || password.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("비밀번호를 입력해주세요.");
+        }
+        
+        try {
+            boolean isValid = userService.verifyUserPassword(userId, password);
+            if (isValid) {
+                return ResponseEntity.ok().body("비밀번호 확인이 완료되었습니다.");
+            } else {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("비밀번호가 일치하지 않습니다.");
+            }
+        } catch (Exception e) {
+            log.error("비밀번호 확인 중 오류 발생: userId={}, error={}", userId, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("서버 오류가 발생했습니다.");
+        }
+    }
+
+    /**
+     * 회원 탈퇴 API
+     */
+    @DeleteMapping("/user/account")
+    public ResponseEntity<?> deleteAccount(@RequestBody UserDeleteRequest request, Authentication authentication) {
+        String userId = authentication.getName();
+        
+        try {
+            boolean result = false;
+            
+            if ("normal".equals(request.getUserType())) {
+                // 일반 로그인 사용자 - 비밀번호 확인 후 탈퇴
+                if (request.getPassword() == null || request.getPassword().isEmpty()) {
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("비밀번호를 입력해주세요.");
+                }
+                result = userService.deleteUserWithPasswordVerification(userId, request.getPassword());
+            } else if ("social".equals(request.getUserType())) {
+                // 소셜 로그인 사용자 - 비밀번호 확인 없이 탈퇴
+                result = userService.deleteSocialUser(userId);
+            } else {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("올바르지 않은 사용자 타입입니다.");
+            }
+            
+            if (result) {
+                log.info("회원 탈퇴 성공: userId={}, userType={}", userId, request.getUserType());
+                return ResponseEntity.ok().body("회원 탈퇴가 완료되었습니다.");
+            } else {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("회원 탈퇴에 실패했습니다.");
+            }
+            
+        } catch (Exception e) {
+            log.error("회원 탈퇴 중 오류 발생: userId={}, error={}", userId, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("서버 오류가 발생했습니다.");
         }
     }
 
@@ -146,7 +223,7 @@ public class UserController {
 
 
     }
-    
+
     /**
      * 페이스 등록이 포함된 회원가입
      */
@@ -195,14 +272,14 @@ public class UserController {
 
         try {
             User savedUser = userService.insertUser(user);
-            
+
             // 페이스 등록이 요청된 경우
             if (savedUser != null && faceImageData != null && faceName != null) {
                 // FaceLoginService를 통한 페이스 등록
                 // 이 부분은 별도 API로 처리하는 것이 더 적절할 수 있습니다.
                 log.info("회원가입 시 페이스 등록 요청: 사용자 {}, 페이스 {}", savedUser.getUserId(), faceName);
             }
-            
+
             return ResponseEntity.status(HttpStatus.OK).build();
         } catch (Exception e) {
             log.error("페이스 등록 포함 회원가입 오류", e);
@@ -249,69 +326,69 @@ public class UserController {
         }
     }
 
-        // 회원 정보 수정 처리용 메소드
-        @PostMapping(value = "user/update/{userId}")
-        public ResponseEntity<?> userUpdateMethod (
-                @PathVariable String userId,
-                @ModelAttribute User user,
-                @RequestParam(name="profileImage", required = false) MultipartFile ufile,
-                @RequestParam(name="originalPwd", required = false) String originalUserPwd,
-                @RequestParam(name="ofile", required = false) String originalFilename){
-            log.info("/user/update : " + user);
+    // 회원 정보 수정 처리용 메소드
+    @PostMapping(value = "user/update/{userId}")
+    public ResponseEntity<?> userUpdateMethod (
+            @PathVariable String userId,
+            @ModelAttribute User user,
+            @RequestParam(name="profileImage", required = false) MultipartFile ufile,
+            @RequestParam(name="originalPwd", required = false) String originalUserPwd,
+            @RequestParam(name="ofile", required = false) String originalFilename){
+        log.info("/user/update : " + user);
 
-            // 암호가 전송이 왔다면 (새로운 암호가 전송온 경우임)
-            if (user.getUserPwd() != null && user.getUserPwd().length() > 0) {
-                // 패스워드 암호화 처리함
-                user.setUserPwd(this.bcryptPasswordEncoder.encode(user.getUserPwd()));
-                log.info("변경된 암호 확인 : " + user.getUserPwd() + ", length : " + user.getUserPwd().length());
-            } else { // 새로운 암호가 전송오지 않았다면, 현재 member.userPwd = null 임 => 쿼리문에 적용되면 기존 암호 지워짐
-                user.setUserPwd(originalUserPwd); // 원래 패스워드 기록함
-            }
-
-            // 사진 파일 첨부가 있을 경우, 저장 폴더 지정 ---------------------------------------------
-            String savePath = uploadDir + "/photo";
-            log.info("savePath : " + savePath);
-
-            // 수정된 첨부파일이 있다면 지정 폴더에 저장 처리 ----------------------------
-            if (!ufile.isEmpty() && ufile != null) {
-                // 전송온 파일 이름 추출함
-                String profileImage = ufile.getOriginalFilename();
-
-                // 이전 첨부파일명과 새로 첨부된 파일명이 다른지 확인
-                if (!profileImage.equals(originalFilename)) {
-
-                    // 여러 회원이 업로드한 사진파일명이 중복될 경우를 대비해서 저장파일명 이름 바꾸기함
-                    // 바꿀 파일이름은 개발자가 정함
-                    // userId 가 기본키(primary key)이므로 중복이 안됨 => userId_profileImage.확장자 형태로 정해봄
-                    String renameFileName = user.getUserId() + "_" + profileImage;
-
-                    // 저장 폴더에 저장 처리
-                    if (profileImage != null && profileImage.length() > 0) {
-                        try {
-                            ufile.transferTo(new File(savePath + "\\" + renameFileName));
-                        } catch (Exception e) {
-                            // 첨부파일 저장시 에러 발생
-                            e.printStackTrace(); // 개발자가 볼 정보
-                            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-                        }
-                    } // if
-
-                    // 파일 업로드 정상 처리되었다면
-                    user.setProfileImage(renameFileName); // db 테이블에는 변경된 파일명이 기록 저장됨
-                } // 첨부파일이 있고, 파일명이 다르다면 --------------------------------------------------------
-            } else { // 새로운 첨부파일이 없다면
-                // 기존 파일명을 member 에 다시 저장함
-                user.setProfileImage(user.getUserId() + "_" + originalFilename);
-            }
-
-            // 서비스 모델의 메소드 실행 요청하고 결과받기
-            if (userService.updateUser(user) != null) { // 회원 정보 수정 성공시
-                // 컨트롤러 메소드에서 다른 컨트롤러 메소드를 실행시킬 경우
-                return new ResponseEntity<>(HttpStatus.OK);
-            } else { // 회원 정보 수정 실패시
-                return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-            }
+        // 암호가 전송이 왔다면 (새로운 암호가 전송온 경우임)
+        if (user.getUserPwd() != null && user.getUserPwd().length() > 0) {
+            // 패스워드 암호화 처리함
+            user.setUserPwd(this.bcryptPasswordEncoder.encode(user.getUserPwd()));
+            log.info("변경된 암호 확인 : " + user.getUserPwd() + ", length : " + user.getUserPwd().length());
+        } else { // 새로운 암호가 전송오지 않았다면, 현재 member.userPwd = null 임 => 쿼리문에 적용되면 기존 암호 지워짐
+            user.setUserPwd(originalUserPwd); // 원래 패스워드 기록함
         }
+
+        // 사진 파일 첨부가 있을 경우, 저장 폴더 지정 ---------------------------------------------
+        String savePath = uploadDir + "/photo";
+        log.info("savePath : " + savePath);
+
+        // 수정된 첨부파일이 있다면 지정 폴더에 저장 처리 ----------------------------
+        if (!ufile.isEmpty() && ufile != null) {
+            // 전송온 파일 이름 추출함
+            String profileImage = ufile.getOriginalFilename();
+
+            // 이전 첨부파일명과 새로 첨부된 파일명이 다른지 확인
+            if (!profileImage.equals(originalFilename)) {
+
+                // 여러 회원이 업로드한 사진파일명이 중복될 경우를 대비해서 저장파일명 이름 바꾸기함
+                // 바꿀 파일이름은 개발자가 정함
+                // userId 가 기본키(primary key)이므로 중복이 안됨 => userId_profileImage.확장자 형태로 정해봄
+                String renameFileName = user.getUserId() + "_" + profileImage;
+
+                // 저장 폴더에 저장 처리
+                if (profileImage != null && profileImage.length() > 0) {
+                    try {
+                        ufile.transferTo(new File(savePath + "\\" + renameFileName));
+                    } catch (Exception e) {
+                        // 첨부파일 저장시 에러 발생
+                        e.printStackTrace(); // 개발자가 볼 정보
+                        return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+                    }
+                } // if
+
+                // 파일 업로드 정상 처리되었다면
+                user.setProfileImage(renameFileName); // db 테이블에는 변경된 파일명이 기록 저장됨
+            } // 첨부파일이 있고, 파일명이 다르다면 --------------------------------------------------------
+        } else { // 새로운 첨부파일이 없다면
+            // 기존 파일명을 member 에 다시 저장함
+            user.setProfileImage(user.getUserId() + "_" + originalFilename);
+        }
+
+        // 서비스 모델의 메소드 실행 요청하고 결과받기
+        if (userService.updateUser(user) != null) { // 회원 정보 수정 성공시
+            // 컨트롤러 메소드에서 다른 컨트롤러 메소드를 실행시킬 경우
+            return new ResponseEntity<>(HttpStatus.OK);
+        } else { // 회원 정보 수정 실패시
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
 
     //회원 탈퇴 (삭제) 처리용 메소드
     @DeleteMapping("/user/delete/{userId}")
@@ -329,8 +406,8 @@ public class UserController {
     // 회원 목록 보기 요청 처리용 (페이징 처리 포함)
     @GetMapping("/admin/ulist")
     public ModelAndView userListMethod(ModelAndView mv,
-                                         @RequestParam(name="page", required=false) String page,
-                                         @RequestParam(name="limit", required=false) String slimit) {
+                                       @RequestParam(name="page", required=false) String page,
+                                       @RequestParam(name="limit", required=false) String slimit) {
         // page : 목록 출력 페이지, limit : 한 페이지에 출력할 목록 갯수
 
         // 페이징 처리
