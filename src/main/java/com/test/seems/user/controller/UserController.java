@@ -2,6 +2,7 @@ package com.test.seems.user.controller;
 
 import com.test.seems.common.Paging;
 import com.test.seems.common.Search;
+import com.test.seems.notice.model.dto.Notice;
 import com.test.seems.user.model.dto.User;
 import com.test.seems.user.model.dto.UserInfoResponse;
 import com.test.seems.user.model.dto.UserDeleteRequest;
@@ -405,11 +406,10 @@ public class UserController {
 
     // 회원 목록 보기 요청 처리용 (페이징 처리 포함)
     @GetMapping("/admin/ulist")
-    public ModelAndView userListMethod(ModelAndView mv,
-                                       @RequestParam(name="page", required=false) String page,
-                                       @RequestParam(name="limit", required=false) String slimit) {
-        // page : 목록 출력 페이지, limit : 한 페이지에 출력할 목록 갯수
-
+    @ResponseBody  // ResponseEntity<String> 인 경우는 생략해도 됨
+    public ResponseEntity<Map<String, Object>> userListMethod(
+            @RequestParam(name = "page", required = false) String page,
+            @RequestParam(name = "limit", required = false) String slimit) {
         // 페이징 처리
         int currentPage = 1;
         if (page != null) {
@@ -422,30 +422,25 @@ public class UserController {
             limit = Integer.parseInt(slimit);
         }
 
-        // 총 목록 갯수 조회해서, 총 페이지 수 계산함
-        int listCount = (int)userService.selectListCount();
-        // 페이지 관련 항목들 계산 처리
-        Paging paging = new Paging(listCount, limit, currentPage, "ulist.do");
+        int listCount = Math.toIntExact(userService.selectListCount());
+        Paging paging = new Paging((int) listCount, limit, currentPage, "/admin/ulist");
         paging.calculate();
 
-        Pageable pageable = PageRequest.of(currentPage-1, limit,
-                Sort.by(Sort.Direction.DESC, "createdat"));
+        //JPA 가 제공하는 Pageable 객체 생성
+        Pageable pageable = PageRequest.of(currentPage - 1, limit, Sort.Direction.DESC, "userId");
 
-        //서비스 모델로 페이징 적용된 목록 조회 요청하고 결과받기
+        // 서비스 모델로 페이징 적용된 목록 조회 요청하고 결과받기
         ArrayList<User> list = userService.selectList(pageable);
 
-        if(list != null && list.size() > 0) {  //조회 성공시
-            //ModelAndView : Model + View
-            mv.addObject("list", list);  //request.setAttribute("list", list) 와 같음
-            mv.addObject("paging", paging);
+        Map<String, Object> map = new HashMap<>();
+        if (list != null && list.size() > 0) {
+            map.put("list", list);
+            map.put("paging", paging);
 
-            mv.setViewName("user/userListView");
-        } else {  //조회 실패시
-            mv.addObject("message", currentPage + "페이지에 출력할 회원 조회 실패!");
-            mv.setViewName("common/error");
+            return ResponseEntity.ok(map);
+        }else{
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(map);
         }
-
-        return mv;
     }
 
     //회원 로그인 제한/허용 처리용 메소드
