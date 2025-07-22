@@ -60,11 +60,40 @@ public class UserService {
     public boolean updateUserInfo(String userId, com.test.seems.user.model.dto.UserInfoResponse req) {
         UserEntity entity = userRepository.findByUserId(userId);
         if (entity == null) return false;
+        
+        // 기본 정보 업데이트
         entity.setUserName(req.getUserName());
         entity.setEmail(req.getEmail());
         entity.setPhone(req.getPhone());
         entity.setProfileImage(req.getProfileImage());
         entity.setUpdatedAt(new java.util.Date());
+        
+        // 비밀번호 변경 처리
+        if (req.getCurrentPassword() != null && req.getNewPassword() != null && req.getConfirmPassword() != null) {
+            // 현재 비밀번호 확인
+            if (!bcryptPasswordEncoder.matches(req.getCurrentPassword(), entity.getUserPwd())) {
+                log.warn("비밀번호 변경 실패 - 현재 비밀번호 불일치: userId={}", userId);
+                return false;
+            }
+            
+            // 새 비밀번호와 확인 비밀번호 일치 확인
+            if (!req.getNewPassword().equals(req.getConfirmPassword())) {
+                log.warn("비밀번호 변경 실패 - 새 비밀번호 불일치: userId={}", userId);
+                return false;
+            }
+            
+            // 새 비밀번호 길이 확인
+            if (req.getNewPassword().length() < 6) {
+                log.warn("비밀번호 변경 실패 - 비밀번호 길이 부족: userId={}", userId);
+                return false;
+            }
+            
+            // 새 비밀번호 해싱 및 저장
+            String hashedNewPassword = bcryptPasswordEncoder.encode(req.getNewPassword());
+            entity.setUserPwd(hashedNewPassword);
+            log.info("비밀번호 변경 성공: userId={}", userId);
+        }
+        
         userRepository.save(entity);
         return true;
     }
@@ -225,6 +254,84 @@ public class UserService {
             return false;
         } catch (Exception e) {
             log.error("페이스 로그인 상태 변경 실패: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * 비밀번호 확인 (회원 탈퇴용)
+     */
+    public boolean verifyUserPassword(String userId, String password) {
+        try {
+            UserEntity user = userRepository.findByUserId(userId);
+            if (user == null) {
+                log.warn("비밀번호 확인 실패 - 사용자 없음: userId={}", userId);
+                return false;
+            }
+            
+            boolean isValid = bcryptPasswordEncoder.matches(password, user.getUserPwd());
+            if (isValid) {
+                log.info("비밀번호 확인 성공: userId={}", userId);
+            } else {
+                log.warn("비밀번호 확인 실패 - 비밀번호 불일치: userId={}", userId);
+            }
+            return isValid;
+        } catch (Exception e) {
+            log.error("비밀번호 확인 중 오류 발생: userId={}, error={}", userId, e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * 회원 탈퇴 (비밀번호 확인 후)
+     */
+    @Transactional
+    public boolean deleteUserWithPasswordVerification(String userId, String password) {
+        try {
+            // 1. 사용자 존재 확인
+            UserEntity user = userRepository.findByUserId(userId);
+            if (user == null) {
+                log.warn("회원 탈퇴 실패 - 사용자 없음: userId={}", userId);
+                return false;
+            }
+            
+            // 2. 비밀번호 확인 (일반 로그인 사용자의 경우)
+            if (password != null && !password.isEmpty()) {
+                if (!bcryptPasswordEncoder.matches(password, user.getUserPwd())) {
+                    log.warn("회원 탈퇴 실패 - 비밀번호 불일치: userId={}", userId);
+                    return false;
+                }
+            }
+            
+            // 3. 회원 삭제
+            userRepository.deleteById(userId);
+            log.info("회원 탈퇴 완료: userId={}", userId);
+            return true;
+            
+        } catch (Exception e) {
+            log.error("회원 탈퇴 중 오류 발생: userId={}, error={}", userId, e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * 소셜 로그인 회원 탈퇴
+     */
+    @Transactional
+    public boolean deleteSocialUser(String userId) {
+        try {
+            UserEntity user = userRepository.findByUserId(userId);
+            if (user == null) {
+                log.warn("소셜 회원 탈퇴 실패 - 사용자 없음: userId={}", userId);
+                return false;
+            }
+            
+            userRepository.deleteById(userId);
+            log.info("소셜 회원 탈퇴 완료: userId={}", userId);
+            return true;
+            
+        } catch (Exception e) {
+            log.error("소셜 회원 탈퇴 중 오류 발생: userId={}, error={}", userId, e.getMessage());
             return false;
         }
     }
