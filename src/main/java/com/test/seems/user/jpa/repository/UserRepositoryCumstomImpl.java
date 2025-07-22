@@ -2,19 +2,15 @@ package com.test.seems.user.jpa.repository;
 
 import com.querydsl.core.types.dsl.Wildcard;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import com.test.seems.user.jpa.entity.UserEntity;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
-import org.hibernate.annotations.Fetch;
-import com.test.seems.user.jpa.entity.UserEntity;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 import java.util.Date;
 import java.util.List;
-import java.util.Optional;
 
-//import static 을 사용하면 별도로 필드 선언하지 않아도 됨
 import static com.test.seems.user.jpa.entity.QUserEntity.userEntity;
 
 @Repository
@@ -37,6 +33,15 @@ public class UserRepositoryCumstomImpl implements UserRepositoryCustom {
         // @Query가 우선이므로 이 메서드는 실행되지 않음
         // 아무 내용이나 넣어도 됨
         return 0;
+    }
+
+    // 전화번호 인증 관련
+    @Override
+    public UserEntity findByPhone(String phone) {
+        return queryFactory
+                .selectFrom(userEntity)
+                .where(userEntity.phone.eq(phone))
+                .fetchOne(); // 단일 결과 반환 (없으면 null, 2개 이상이면 예외)
     }
 
     /**

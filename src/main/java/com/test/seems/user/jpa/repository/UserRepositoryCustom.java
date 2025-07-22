@@ -13,6 +13,9 @@ public interface UserRepositoryCustom {
     @Query(value = "UPDATE TB_USERS SET STATUS = :status WHERE USER_ID = :userId", nativeQuery = true)
     int modifyUserStatus(@Param("userId") String userId, @Param("status") int status);
 
+    // 전화번호 인증 관련
+    UserEntity findByPhone(String phone);
+
     //관리자용 검색 관련
     long countByUserId(String keyword);
     long countByUserNameContaining(String keyword);
@@ -23,4 +26,5 @@ public interface UserRepositoryCustom {
     List<UserEntity> findByUserNameContaining(String keyword, Pageable pageable);
     List<UserEntity> findByCreatedAtBetween(java.util.Date begin, java.util.Date end, Pageable pageable);
     List<UserEntity> findByStatus(int keyword, Pageable pageable);
+
 }
