@@ -36,7 +36,7 @@ public class UserController {
     /**
      * 마이페이지 사용자 정보 API (/user/info)
      */
-    @GetMapping("/user/info")
+    @GetMapping("user/info")
     public ResponseEntity<UserInfoResponse> getUserInfo(Authentication authentication) {
         String userId = authentication.getName(); // 인증 방식에 따라 다를 수 있음
         UserInfoResponse userInfo = userService.getUserInfoByUserId(userId);
@@ -49,7 +49,7 @@ public class UserController {
     /**
      * 마이페이지 사용자 정보 수정 API (/user/info)
      */
-    @PutMapping("/user/info")
+    @PutMapping("user/info")
     public ResponseEntity<?> updateUserInfo(@RequestBody UserInfoResponse req, Authentication authentication) {
         String userId = authentication.getName();
         boolean result = userService.updateUserInfo(userId, req);

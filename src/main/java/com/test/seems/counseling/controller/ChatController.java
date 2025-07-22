@@ -66,6 +66,16 @@ public class ChatController {
 
         } catch (Exception e) {
             System.err.println("Error communicating with Python AI server: " + e.getMessage());
+
+            // Python AI 서버가 실행되지 않은 경우 임시 응답
+            if (e.getMessage().contains("404") || e.getMessage().contains("Connection refused")) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("response", "죄송합니다. AI 상담 서버가 현재 점검 중입니다. 잠시 후 다시 시도해주세요.");
+                response.put("next_core_question_index", currentCoreQuestionIndex);
+                response.put("server_status", "maintenance");
+                return ResponseEntity.ok(response);
+            }
+
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error processing AI request", e);
         }
     }

@@ -95,6 +95,11 @@ public class JWTUtil {
         return getClaimsFromToken(token).get("category", String.class);
     }
 
+    // 토큰에서 authType 정보 추출
+    public String getAuthTypeFromToken(String token) {
+        return getClaimsFromToken(token).get("authType", String.class);
+    }
+
 
     public Long getAccessExpiration() { return accessExpiration; }
     public Long getRefreshExpiration() { return refreshExpiration; }
@@ -127,11 +132,13 @@ public class JWTUtil {
     }
     
     // 페이스 로그인 전용 토큰 생성
-    public String createFaceJwt(String category, String userId, Long expiration) {
+    public String createFaceJwt(String category, String userId, String userName, String role, Long expiration) {
         return Jwts.builder()
                 .setSubject(userId)
                 .claim("category", category)
                 .claim("authType", "FACE")
+                .claim("name", userName)
+                .claim("role", role) // 반드시 포함
                 .setExpiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(SignatureAlgorithm.HS512, secretKey)
                 .compact();

@@ -21,6 +21,9 @@ public class CounselingController {
     public ResponseEntity<CounselingDto.HistoryResponse> saveCounselingHistory(
             @AuthenticationPrincipal UserDetails userDetails,
             @RequestBody CounselingDto.CreateRequest request) {
+        if (userDetails == null) {
+            return ResponseEntity.status(401).build();
+        }
         CounselingDto.HistoryResponse response = counselingService.saveCounselingHistory(userDetails.getUsername(), request);
         return ResponseEntity.ok(response);
     }
@@ -28,6 +31,9 @@ public class CounselingController {
     @GetMapping("/history")
     public ResponseEntity<List<CounselingDto.HistoryResponse>> getCounselingHistoryList(
             @AuthenticationPrincipal UserDetails userDetails) {
+        if (userDetails == null) {
+            return ResponseEntity.status(401).build();
+        }
         List<CounselingDto.HistoryResponse> historyList = counselingService.getCounselingHistoryList(userDetails.getUsername());
         return ResponseEntity.ok(historyList);
     }
@@ -36,6 +42,9 @@ public class CounselingController {
     public ResponseEntity<CounselingDto.DetailResponse> getCounselingHistoryDetail(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long sessionId) {
+        if (userDetails == null) {
+            return ResponseEntity.status(401).build();
+        }
         CounselingDto.DetailResponse detail = counselingService.getCounselingHistoryDetail(userDetails.getUsername(), sessionId);
         return ResponseEntity.ok(detail);
     }
