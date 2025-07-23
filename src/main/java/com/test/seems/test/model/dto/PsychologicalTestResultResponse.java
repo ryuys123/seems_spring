@@ -18,7 +18,7 @@ public class PsychologicalTestResultResponse {
     private String rawResponseText; // 이미지 검사 또는 AI 텍스트 분석 시 원본 텍스트 (척도 검사 시 null 가능)
     private String testType;
     // ⭐⭐ 새로 추가할 필드: 척도 검사 결과에 특화된 정보 (TB_PSYCHOLOGICAL_SCALE_RESULTS에 매핑될 필드) ⭐⭐
-    private Integer totalScore;        // 척도 검사 (우울증/스트레스)의 총점
+    private Double totalScore;        // 척도 검사 (우울증/스트레스)의 총점
     private String diagnosisCategory;  // 척도 검사 (우울증/스트레스)의 진단 카테고리 (예: "정상", "경도 우울")
     private String interpretationText; // 척도 검사 (우울증/스트레스)의 결과 해석 및 조언
     private String riskLevel;          // 척도 검사 (우울증/스트레스)의 위험도 수준 (예: "NORMAL", "CAUTION", "HIGH_RISK")

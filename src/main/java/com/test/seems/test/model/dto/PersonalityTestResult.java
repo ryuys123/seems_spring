@@ -31,4 +31,8 @@ public class PersonalityTestResult {
                 .mbtiTitle(this.mbtiTitle)
                 .build();
     }
+
+    public String getMbtiType() {
+        return this.mbtiTitle;
+    }
 }

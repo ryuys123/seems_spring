@@ -10,6 +10,7 @@ import com.test.seems.counseling.jpa.repository.CounselingSessionRepository;
 import com.test.seems.user.jpa.entity.UserEntity;
 import com.test.seems.user.jpa.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,7 +18,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.Optional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CounselingService {
@@ -28,6 +31,10 @@ public class CounselingService {
 
     @Transactional
     public CounselingDto.HistoryResponse saveCounselingHistory(String username, CounselingDto.CreateRequest request) {
+        log.info("Saving counseling history for user: {}", username);
+        log.info("Request topic: {}, method: {}, sessionId: {}", request.getTopic(), request.getMethod(), request.getSessionId());
+        log.info("Number of messages: {}", request.getMessages().size());
+
         UserEntity user = userRepository.findByUserId(username);
         if (user == null) {
             throw new UsernameNotFoundException("User not found with username: " + username);
@@ -62,6 +69,7 @@ public class CounselingService {
 
         // 2. 메시지 저장
         for (CounselingDto.MessageDto messageDto : request.getMessages()) {
+            log.info("Saving message - sender: {}, type: {}, content length: {}", messageDto.getType(), messageDto.getText(), messageDto.getText().length());
             com.test.seems.counseling.jpa.entity.CounselingMessageEntity messageEntity = CounselingMessageEntity.builder()
                     .session(sessionEntity) // 기존 또는 새로 생성된 세션에 연결
                     .sender(messageDto.getType().toUpperCase()) // USER, AI
@@ -104,5 +112,19 @@ public class CounselingService {
         List<CounselingMessageEntity> messageEntities = counselingMessageRepository.findBySessionOrderByMessageIdAsc(sessionEntity);
 
         return CounselingDto.DetailResponse.fromEntity(sessionEntity, messageEntities);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<CounselingDto.DetailResponse> getLatestCounselingHistoryDetail(String username) {
+        UserEntity user = userRepository.findByUserId(username);
+        if (user == null) {
+            throw new UsernameNotFoundException("User not found with username: " + username);
+        }
+
+        return counselingSessionRepository.findTopByUserOrderByCreatedAtDesc(user)
+                .map(sessionEntity -> {
+                    List<CounselingMessageEntity> messageEntities = counselingMessageRepository.findBySessionOrderByMessageIdAsc(sessionEntity);
+                    return CounselingDto.DetailResponse.fromEntity(sessionEntity, messageEntities);
+                });
     }
 }

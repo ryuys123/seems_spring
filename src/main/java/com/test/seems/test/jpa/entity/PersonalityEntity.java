@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
 public class PersonalityEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "personality_answers_seq_gen") // ⭐ 제너레이터 이름 변경
-    @SequenceGenerator(name = "personality_answers_seq_gen", sequenceName = "SEQ_PERSONALITY_ANSWERS_AID", allocationSize = 1) // ⭐ 시퀀스 이름 변경
+    @SequenceGenerator(name = "personality_answers_seq_gen", sequenceName = "SEQ_PERSONALITY_TEST_ANSWERS_ANSWER_ID", allocationSize = 1) // ⭐ 시퀀스 이름 변경
     @Column(name = "ANSWER_ID", nullable = false)
     private Long answerId;
 
