@@ -31,6 +31,11 @@ public class ChatController {
         List<Map<String, String>> messages = chatRequest.getMessages();
         Integer currentCoreQuestionIndex = chatRequest.getCurrent_core_question_index();
 
+        // 대화 내용이 너무 길어지는 것을 방지하기 위해 최근 10개의 메시지만 사용합니다.
+        if (messages != null && messages.size() > 10) {
+            messages = messages.subList(messages.size() - 10, messages.size());
+        }
+
         if (messages == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Messages cannot be null");
         }
@@ -66,16 +71,6 @@ public class ChatController {
 
         } catch (Exception e) {
             System.err.println("Error communicating with Python AI server: " + e.getMessage());
-
-            // Python AI 서버가 실행되지 않은 경우 임시 응답
-            if (e.getMessage().contains("404") || e.getMessage().contains("Connection refused")) {
-                Map<String, Object> response = new HashMap<>();
-                response.put("response", "죄송합니다. AI 상담 서버가 현재 점검 중입니다. 잠시 후 다시 시도해주세요.");
-                response.put("next_core_question_index", currentCoreQuestionIndex);
-                response.put("server_status", "maintenance");
-                return ResponseEntity.ok(response);
-            }
-
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error processing AI request", e);
         }
     }

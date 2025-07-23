@@ -49,6 +49,13 @@ public class CounselingMessageEntity {
     @Column(name = "CREATED_AT", updatable = false)
     private Date createdAt;
 
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = new Date();
+        }
+    }
+
     @Builder
     public CounselingMessageEntity(CounselingSessionEntity session, String sender, String messageType, String messageContent, String imageFilePath, Date messageTime) {
         this.session = session;
