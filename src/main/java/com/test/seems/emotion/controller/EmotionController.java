@@ -3,7 +3,6 @@ package com.test.seems.emotion.controller;
 import com.test.seems.emotion.jpa.entity.Emotion;
 import com.test.seems.emotion.jpa.entity.EmotionLog;
 import com.test.seems.emotion.model.service.EmotionService;
-import com.test.seems.emotion.model.dto.TodayEmotionDto;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -51,13 +50,5 @@ public class EmotionController {
         List<EmotionLog> emotionLogs = emotionService.getUserEmotionLogs(userId);
         return ResponseEntity.ok(emotionLogs);
     }
-    
-    @GetMapping("/today-emotion")
-    public ResponseEntity<TodayEmotionDto> getTodayEmotion(@RequestParam String userId) {
-        TodayEmotionDto todayEmotion = emotionService.getTodayEmotion(userId);
-        if (todayEmotion == null) {
-            return ResponseEntity.notFound().build();
-        }
-        return ResponseEntity.ok(todayEmotion);
-    }
+
 }
