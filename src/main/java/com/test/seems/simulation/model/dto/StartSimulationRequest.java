@@ -1,3 +1,4 @@
+// com/test/seems/simulation/model/dto/StartSimulationRequest.java
 package com.test.seems.simulation.model.dto;
 
 import lombok.Data;
@@ -10,6 +11,8 @@ import lombok.Builder;
 @AllArgsConstructor
 @Builder
 public class StartSimulationRequest {
+    // 일반 시나리오 선택용 필드
     private Long scenarioId;
-    private String userId; // 사용자의 ID
+    // 사용자 식별용 필드
+    private String userId;
 }

@@ -172,24 +172,43 @@ public class LoginFilter extends UsernamePasswordAuthenticationFilter {
     @Override
     protected void unsuccessfulAuthentication(HttpServletRequest request, HttpServletResponse response,
                                               AuthenticationException failed) throws IOException, ServletException {
+        // CORS 헤더 설정 (React 프론트엔드에서 응답을 받을 수 있도록)
+        response.setHeader("Access-Control-Allow-Origin", "http://localhost:3000");
+        response.setHeader("Access-Control-Allow-Credentials", "true");
+        response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+        response.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+        
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setContentType("application/json; charset=utf-8");
 
         // 디버깅을 위한 로그 추가
         log.error("로그인 실패 - 예외 타입: {}", failed.getClass().getSimpleName());
         log.error("로그인 실패 - 예외 메시지: {}", failed.getMessage());
-        log.error("로그인 실패 - 전체 예외: {}", failed);
+        log.error("로그인 실패 - 요청 URL: {}", request.getRequestURL());
 
         // 예외 클래스 메세지를 기반으로 오류 메세지 지정함
         String errorMessage;
+        String errorCode;
+        
         if (failed.getMessage().contains("Bad credentials")) {
             errorMessage = "아이디와 비밀번호를 다시 확인해 주세요.";
+            errorCode = "INVALID_CREDENTIALS";
         } else if (failed.getMessage().contains("사용자를 찾을 수 없습니다.")) {
-            errorMessage = "ID 가 없으면 사용자를 찾을 수 없습니다..";
+            errorMessage = "존재하지 않는 사용자입니다.";
+            errorCode = "USER_NOT_FOUND";
         } else {
-            errorMessage = "로그인 실패 : 알 수 없는 오류가 발생했습니다.";
+            errorMessage = "로그인에 실패했습니다. 다시 시도해주세요.";
+            errorCode = "LOGIN_FAILED";
         }
 
-        response.getWriter().write(String.format("{\"error\":\"%s\"}", errorMessage));
+        // 더 구조화된 JSON 응답 생성
+        Map<String, Object> errorResponse = Map.of(
+            "success", false,
+            "error", errorMessage,
+            "errorCode", errorCode,
+            "timestamp", new Date().getTime()
+        );
+
+        new ObjectMapper().writeValue(response.getWriter(), errorResponse);
     }
 }

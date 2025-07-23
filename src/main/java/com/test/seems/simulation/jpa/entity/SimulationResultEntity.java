@@ -1,11 +1,11 @@
 package com.test.seems.simulation.jpa.entity;
 
+import com.test.seems.simulation.model.dto.SimulationResult;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import jakarta.persistence.*;
-import java.time.LocalDateTime;
 
 @Data
 @Entity
@@ -16,30 +16,32 @@ import java.time.LocalDateTime;
 public class SimulationResultEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "result_sim_seq_gen")
-    @SequenceGenerator(name = "result_sim_seq_gen", sequenceName = "SIM_RESULT_SEQ", allocationSize = 1)
-    @Column(name = "RESULT_ID")
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "result_id_generator")
+    @SequenceGenerator(name = "result_id_generator", sequenceName = "TB_SIMULATION_RESULTS_SEQ", allocationSize = 1)
     private Long resultId;
 
-    @Column(name = "SETTING_ID", nullable = false)
-    private Long settingId;
+    // 'TEMPLATE' 또는 'USER_RESULT' 같은 값을 저장할 컬럼
+    @Column(name = "RESULT_TYPE", nullable = false)
+    private String resultType;
 
-    @Lob // CLOB 타입 매핑
-    @Column(name = "RESULT_SUMMARY", nullable = false, length = 2000)
-    private String resultSummary; // AI가 생성한 성격 분석 요약
-
-    @Column(name = "PERSONALITY_TYPE", length = 50)
+    // 템플릿인 경우, 어떤 성향에 대한 템플릿인지 저장 (예: 'CREATIVE', 'LOGICAL')
+    // 사용자 결과인 경우, 사용자가 최종적으로 부여받은 성향을 저장
+    @Column(name = "PERSONALITY_TYPE")
     private String personalityType;
 
-    @Column(name = "CREATED_AT", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    @Column(name = "RESULT_TITLE")
+    private String resultTitle;
 
-    // 이 엔티티의 toDto() 메서드 추가 (필요시)
+    @Column(name = "RESULT_SUMMARY", length = 1000)
+    private String resultSummary;
 
-    @PrePersist
-    protected void onCreate() {
-        if (createdAt == null) {
-            createdAt = LocalDateTime.now();
-        }
+
+
+    public SimulationResult toDto() {
+        return SimulationResult.builder()
+                .resultTitle(this.resultTitle)
+                .resultSummary(this.resultSummary)
+                .personalityType(this.personalityType)
+                .build();
     }
 }

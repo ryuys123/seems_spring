@@ -40,6 +40,9 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	//스프링 부트 웹 관련 기본 설정과 의존성 기능 제공, Restful 관련 어노테이션 제공
 
+	// 인증번호 sms 발송 관련 제공
+	implementation 'net.nurigo:sdk:4.3.0'
+
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	//스프링 부트와 연동되는 jpa 기술 관련 의존성 기능 제공
 	//오라클 db 사용 라이브러리 의존성 추가 (21C xe)
@@ -91,6 +94,7 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.security:spring-security-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
 }
 
 // sourceSets
@@ -103,6 +107,7 @@ sourceSets {
 		}
 	}
 }
+
 
 //annotationProcessorGeneratedSourcesDirectory 를 사용할 수도 있는데,
 //Gradle 공식 문서에 해당 기능은 deprecated 되었고, 추후 major 버전에서 삭제할 것이라고 소개되어 있음
