@@ -165,6 +165,7 @@ public class SecurityConfig implements WebMvcConfigurer {
                                 "/api/user/stats", // 사용자 통계 조회
                                 "/api/user/owned-titles",
                                 "/api/simulation/**",
+                                "/seems/api/user/verification",
                                 "/api/emotions").permitAll()
                         // ===== 페이스로그인 관련 URL 허용 =====
                         .requestMatchers("/api/face/login").permitAll()

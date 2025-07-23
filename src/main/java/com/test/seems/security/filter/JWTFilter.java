@@ -46,6 +46,7 @@ public class JWTFilter extends OncePerRequestFilter {
                 || url.equals("/api/face/login")
                 || url.equals("/api/face/register")
                 || url.equals("/api/face/signup")
+                || url.equals("/seems/api/user/verification") // 본인인증 API 추가
 
                 || url.startsWith("/seems/api/psychological-test/image-question") // 이미지 문항 조회
                 || url.startsWith("/seems/api/psychological-test/submit-answer") // 답변 제출
@@ -104,88 +105,88 @@ public class JWTFilter extends OncePerRequestFilter {
         String accessTokenHeader = request.getHeader("Authorization");
         String refreshTokenHeader = request.getHeader("RefreshToken");
 
-        if (accessTokenHeader == null || accessTokenHeader.isEmpty()) {
-            log.warn("Authorization header is empty");
-        }
-        if (refreshTokenHeader == null || refreshTokenHeader.isEmpty()) {
-            log.warn("Refresh header is empty");
+        // 토큰이 없거나 잘못된 형식이면 다음 필터로 넘어감 (인증이 필요하지 않은 요청)
+        if (accessTokenHeader == null || accessTokenHeader.isEmpty() || 
+            refreshTokenHeader == null || refreshTokenHeader.isEmpty() ||
+            !accessTokenHeader.startsWith("Bearer ") || !refreshTokenHeader.startsWith("Bearer ")) {
+            log.info("토큰이 없거나 잘못된 형식이어서 다음 필터로 넘어감: {}", requestURI);
+            filterChain.doFilter(request, response);
+            return;
         }
 
         try {
                 String accessToken = null;
                 String refreshToken = null;
 
-                if ((accessTokenHeader != null && refreshTokenHeader != null)) {
-                    // 각 해더에서 token 추출
-                    accessToken = accessTokenHeader.substring("Bearer ".length());
-                    refreshToken = refreshTokenHeader.substring("Bearer ".length());
+                // 각 해더에서 token 추출
+                accessToken = accessTokenHeader.substring("Bearer ".length());
+                refreshToken = refreshTokenHeader.substring("Bearer ".length());
 
-                    // AccessToken에서 사용자 이름 추출 및 인증 정보 설정
-                    String username = jwtUtil.getUseridFromToken(accessToken);
-                    
-                    // 페이스 로그인 토큰인지 확인
-                    String authType = jwtUtil.getAuthTypeFromToken(accessToken);
-                    log.info("JWT 토큰 인증 타입: {}, 사용자: {}", authType, username);
-                    
-                    UserDetails userDetails = null;
-                    try {
-                        userDetails = userDetailsService.loadUserByUsername(username);
-                    } catch (Exception e) {
-                        log.warn("UserDetails 조회 실패: {}", e.getMessage());
-                        // 페이스 로그인 또는 일반 로그인의 경우 간단한 인증 객체 생성
-                        if ("FACE".equals(authType) || authType == null) {
-                            userDetails = org.springframework.security.core.userdetails.User.builder()
-                                    .username(username)
-                                    .password("") // 페이스 로그인은 비밀번호 검증 불필요
-                                    .roles("USER") // 기본 역할
-                                    .build();
-                        }
-                    }
-                    
-                    if (userDetails != null) {
-                        UsernamePasswordAuthenticationToken authenticationToken =
-                                new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-                        SecurityContextHolder.getContext().setAuthentication(authenticationToken);
-                    } else {
-                        log.error("UserDetails가 null입니다. 사용자: {}", username);
-                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                        response.getWriter().write("{\"error\":\"invalid user\"}");
-                        return;
-                    }
-
-                // RefreshToken 만료, AccessToken 유효
-                if (!jwtUtil.isTokenExpired(accessToken) && jwtUtil.isTokenExpired(refreshToken)) {
-                    log.warn("RefreshToken 만료, AccessToken 유효.");
-                    // 요청 에러에 대한 스트림 열어서 에러 정보를 클라이언트에게 보냄
-                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    response.setHeader("token-expired", "RefreshToken");
-                    response.getWriter().write("{\"error\":\"RefreshToken expired\"}");
-                    return;
-                }
-
-                // AccessToken 만료, RefreshToken 유효 (위의 조건 통과했으므로, 질문 생략해도 됨)
-                if (jwtUtil.isTokenExpired(accessToken) && !jwtUtil.isTokenExpired(refreshToken)) {
-                    log.warn("AccessToken 만료, RefreshToken 유효 - ReIssueController로 전달");
-                    // AccessToken이 만료되어도 RefreshToken이 유효하면 요청을 통과시킴
-                    // ReIssueController에서 토큰 갱신 처리
+                // 토큰이 비어있으면 다음 필터로 넘어감
+                if (accessToken.trim().isEmpty() || refreshToken.trim().isEmpty()) {
+                    log.info("토큰 값이 비어있어서 다음 필터로 넘어감: {}", requestURI);
                     filterChain.doFilter(request, response);
                     return;
                 }
+
+                // AccessToken에서 사용자 이름 추출 및 인증 정보 설정
+                String username = jwtUtil.getUseridFromToken(accessToken);
                 
-                // AccessToken 만료, RefreshToken도 만료
-                if (jwtUtil.isTokenExpired(accessToken) && jwtUtil.isTokenExpired(refreshToken)) {
-                    log.warn("AccessToken 만료, RefreshToken도 만료.");
+                // 페이스 로그인 토큰인지 확인
+                String authType = jwtUtil.getAuthTypeFromToken(accessToken);
+                log.info("JWT 토큰 인증 타입: {}, 사용자: {}", authType, username);
+                
+                UserDetails userDetails = null;
+                try {
+                    userDetails = userDetailsService.loadUserByUsername(username);
+                } catch (Exception e) {
+                    log.warn("UserDetails 조회 실패: {}", e.getMessage());
+                    // 페이스 로그인 또는 일반 로그인의 경우 간단한 인증 객체 생성
+                    if ("FACE".equals(authType) || authType == null) {
+                        userDetails = org.springframework.security.core.userdetails.User.builder()
+                                .username(username)
+                                .password("") // 페이스 로그인은 비밀번호 검증 불필요
+                                .roles("USER") // 기본 역할
+                                .build();
+                    }
+                }
+                
+                if (userDetails != null) {
+                    UsernamePasswordAuthenticationToken authenticationToken =
+                            new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                    SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+                } else {
+                    log.error("UserDetails가 null입니다. 사용자: {}", username);
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    response.setHeader("token-expired", "Both");
-                    response.getWriter().write("{\"error\":\"Both tokens expired\"}");
+                    response.getWriter().write("{\"error\":\"invalid user\"}");
                     return;
                 }
-            } else {
-                // 둘 다 null 이면
-                log.warn("RefreshToken Null, AccessToken Null.");
+
+            // RefreshToken 만료, AccessToken 유효
+            if (!jwtUtil.isTokenExpired(accessToken) && jwtUtil.isTokenExpired(refreshToken)) {
+                log.warn("RefreshToken 만료, AccessToken 유효.");
                 // 요청 에러에 대한 스트림 열어서 에러 정보를 클라이언트에게 보냄
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.getWriter().write("{\"error\":\"missing or invalid tokens\"}");
+                response.setHeader("token-expired", "RefreshToken");
+                response.getWriter().write("{\"error\":\"RefreshToken expired\"}");
+                return;
+            }
+
+            // AccessToken 만료, RefreshToken 유효 (위의 조건 통과했으므로, 질문 생략해도 됨)
+            if (jwtUtil.isTokenExpired(accessToken) && !jwtUtil.isTokenExpired(refreshToken)) {
+                log.warn("AccessToken 만료, RefreshToken 유효 - ReIssueController로 전달");
+                // AccessToken이 만료되어도 RefreshToken이 유효하면 요청을 통과시킴
+                // ReIssueController에서 토큰 갱신 처리
+                filterChain.doFilter(request, response);
+                return;
+            }
+            
+            // AccessToken 만료, RefreshToken도 만료
+            if (jwtUtil.isTokenExpired(accessToken) && jwtUtil.isTokenExpired(refreshToken)) {
+                log.warn("AccessToken 만료, RefreshToken도 만료.");
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setHeader("token-expired", "Both");
+                response.getWriter().write("{\"error\":\"Both tokens expired\"}");
                 return;
             }
 
