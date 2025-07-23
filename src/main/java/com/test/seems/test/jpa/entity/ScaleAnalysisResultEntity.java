@@ -70,10 +70,10 @@ public class ScaleAnalysisResultEntity {
                 // 척도 검사 결과는 questionId, rawResponseText, AI 분석 필드들이 null일 수 있음
                 .questionId(null)
                 .rawResponseText(null)
-                .testType(this.testType)           // ✨ 수정: 엔티티의 testType을 올바르게 매핑
-                .diagnosisCategory(this.testCategory) // ✨ 수정: 진단 카테고리에 testCategory를 매핑
+                .testType(this.testType)           // 엔티티의 testType을 올바르게 매핑
+                .diagnosisCategory(this.testCategory) // 진단 카테고리에 testCategory를 매핑
                 // 척도 검사 특화 필드
-                .totalScore(this.totalScore != null ? this.totalScore.intValue() : null) // Integer로 변환 (DTO가 Integer라면)
+                .totalScore(this.totalScore)
                 .interpretationText(this.interpretation)
                 .riskLevel(this.riskLevel)
                 // AI 분석 관련 필드는 척도 검사에서 AI 분석을 직접 하지 않는다면 null로 설정
@@ -84,7 +84,6 @@ public class ScaleAnalysisResultEntity {
                 .aiInsightSummary(null)
                 .suggestions(this.suggestions)
                 .testDateTime(this.createdAt)
-                .testType(this.testType)
                 .build();
     }
 }
