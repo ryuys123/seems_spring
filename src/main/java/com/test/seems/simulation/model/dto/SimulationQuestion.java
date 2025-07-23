@@ -1,50 +1,45 @@
 package com.test.seems.simulation.model.dto;
 
-import com.test.seems.simulation.jpa.entity.SimulationQuestionEntity;
-import lombok.AllArgsConstructor;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
 import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.extern.jackson.Jacksonized;
+
 import java.util.List;
 
 @Data
-@NoArgsConstructor
-@AllArgsConstructor
 @Builder
+@Jacksonized // Builder 패턴과 Jackson 직렬화/역직렬화 함께 사용 시 필요
+@JsonInclude(JsonInclude.Include.NON_NULL) // JSON으로 만들 때 null 값인 필드는 제외
 public class SimulationQuestion {
 
-    private Long questionId;
+    private Long settingId;
     private Long scenarioId;
     private Integer questionNumber;
     private String questionText;
-    private List<Option> options; // 선택지 목록
-    private Long settingId;
-    // 선택지 DTO (내부 클래스)
+    private Boolean isSimulationEnded;
+    private List<ChoiceOption> options;
+    // private String finalResultPersonalityType; // ❌ 이 필드는 제거됩니다.
+
+    /**
+     * 개별 선택지 하나의 정보를 담는 static 내부 클래스입니다.
+     * `trait` 필드가 다시 포함되고, `resultPersonalityType` 필드는 제거됩니다.
+     */
     @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     @Builder
-    public static class Option {
+    @Jacksonized
+    public static class ChoiceOption {
         private String text;
-        private String trait; // 성향 특성
-        private String nextNarrative; // 다음 시나리오 설명
+        private String trait; // ✅ 이 필드가 다시 포함됩니다.
+        private Integer nextQuestionNumber;
+        // private String resultPersonalityType; // ❌ 이 필드는 제거됩니다.
     }
 
-    // 엔티티(SimulationQuestionEntity)에서 DTO로 변환하는 메서드
-    public static SimulationQuestion fromEntity(SimulationQuestionEntity entity) {
-
-        // 주의: entity.getChoiceOptions()는 JSON 문자열이므로,
-        // JSON 파서를 사용하여 List<Option>으로 변환해야 합니다.
-        // 예를 들어 Jackson 라이브러리의 ObjectMapper를 사용합니다.
-
-        // List<Option> parsedOptions = parseOptionsFromJson(entity.getChoiceOptions());
-
-        return SimulationQuestion.builder()
-                .questionId(entity.getQuestionId())
-                .scenarioId(entity.getScenarioId())
-                .questionNumber(entity.getQuestionNumber())
-                .questionText(entity.getQuestionText())
-                // .options(parsedOptions) // 파싱된 옵션 리스트 설정
-                .build();
+    /**
+     * 데이터베이스의 JSON 문자열을 파싱하기 위한 헬퍼(helper) 클래스입니다.
+     */
+    @Data
+    public static class JsonOptions {
+        private List<ChoiceOption> options;
     }
 }
