@@ -4,12 +4,14 @@ import com.test.seems.emotion.jpa.entity.Emotion;
 import com.test.seems.emotion.jpa.entity.EmotionLog;
 import com.test.seems.emotion.jpa.repository.EmotionRepository;
 import com.test.seems.emotion.jpa.repository.EmotionLogRepository;
+import com.test.seems.emotion.model.dto.TodayEmotionDto;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
 import java.util.HashMap;
 import java.util.Map;
+import java.text.SimpleDateFormat;
 
 @Service
 public class EmotionService {
@@ -60,5 +62,35 @@ public class EmotionService {
             }
         });
         return logs;
+    }
+    
+    public TodayEmotionDto getTodayEmotion(String userId) {
+        // 먼저 오늘의 감정을 조회
+        Optional<EmotionLog> todayEmotion = emotionLogRepository.findTodayEmotionByUserId(userId);
+        
+        // 오늘의 감정이 없으면 가장 최근 감정을 조회
+        if (todayEmotion.isEmpty()) {
+            todayEmotion = emotionLogRepository.findLatestEmotionByUserId(userId);
+        }
+        
+        if (todayEmotion.isEmpty()) {
+            return null; // 감정 기록이 없는 경우
+        }
+        
+        EmotionLog emotionLog = todayEmotion.get();
+        Emotion emotion = emotionLog.getEmotion();
+        
+        // 날짜 포맷팅
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+        String formattedDate = sdf.format(emotionLog.getCreatedAt());
+        
+        return TodayEmotionDto.builder()
+                .emotionId(emotion.getEmotionId())
+                .emotionName(emotion.getEmotionName())
+                .emoji(EMOTION_EMOJIS.getOrDefault(emotion.getEmotionName(), "❓"))
+                .description(emotion.getDescription())
+                .textContent(emotionLog.getTextContent())
+                .createdAt(formattedDate)
+                .build();
     }
 }
