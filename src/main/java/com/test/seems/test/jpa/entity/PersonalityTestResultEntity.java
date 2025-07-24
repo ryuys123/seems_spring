@@ -21,7 +21,7 @@ public class PersonalityTestResultEntity {
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "personality_results_seq_gen") // ⭐ 제너레이터 이름 변경
     @SequenceGenerator(
             name = "personality_results_seq_gen",      // ⭐ 제너레이터 이름 설정
-            sequenceName = "SEQ_PERSONALITY_RESULTS_PID", // ⭐ DB에 만든 새로운 시퀀스 이름
+            sequenceName = "SEQ_PERSONALITY_ANALYSIS_PERSONALITY_ID", // ⭐ DB에 만든 새로운 시퀀스 이름
             allocationSize = 1
     )
     @Column(name = "PERSONALITY_ID") // 컬럼명 명시 (DB 컬럼명과 일치)

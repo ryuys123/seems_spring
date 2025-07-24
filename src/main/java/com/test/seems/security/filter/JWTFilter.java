@@ -29,145 +29,210 @@ public class JWTFilter extends OncePerRequestFilter {
     // 이 필터에서 토큰 확인 안 하고 서비스로 넘기도록 하면 됨
     // 그냥 통과시킬 url 등록 메소드를 추가함
     private boolean isExcludedUrl(String url) {
-        // ⭐️ 추가된 부분: /seems/images/ 디렉토리의 모든 파일에 대해 토큰 검사 없이 통과
+        // ⭐️ 모든 permitAll 경로를 명시적으로 startsWith로 처리하고,
+        // 특히 /seems/api/analysis/status/ 경로를 가장 먼저 확인하도록 변경
+        if (url.startsWith("/seems/api/analysis/status/")) {
+            return true;
+        }
         if (url.startsWith("/seems/images/")) {
             return true;
         }
-        return url.equals("/")
-                || url.equals("/favicon.ico")
-                || url.startsWith("/seems/login")
-                || url.equals("/seems/notice/*")
-                || url.equals("/seems/faq/*")
-                || url.equals("/seems/user/signup")
-                || url.equals("/seems/user/idchk")
-                || url.equals("/seems/api/face-signup")
-                || url.startsWith("/seems/api/face/")
-                || url.startsWith("/seems/auth/face")
-
-                || url.startsWith("/seems/api/psychological-test/image-question") // 이미지 문항 조회
-                || url.startsWith("/seems/api/psychological-test/submit-answer") // 답변 제출
-                || url.startsWith("/seems/api/psychological-test/results/") // 결과 조회
-
-                || url.startsWith("/seems/api/personality-test/questions")
-                || url.startsWith("/seems/api/personality-test/submit-answers")
-                || url.startsWith("/seems/api/personality-test/results/")
-                || url.startsWith("/seems/api/personality-test/history/")
-
-                || url.startsWith("/seems/api/psychological-test/")
-                // 퀘스트 경로 추가
-                || url.startsWith("/seems/api/quest-rewards") // 뱃지 상점 API
-                || url.startsWith("/seems/api/user/points") // 사용자 포인트 조회
-                || url.startsWith("/seems/api/user/stats") // 사용자 통계 조회
-                || url.startsWith("/seems/api/user/owned-titles") // 사용자 보유 뱃지 조회
-
-                // ** 시뮬레이션 API 경로 추가 **
-                || url.startsWith("/api/simulation/")
-                || url.startsWith("/seems/api/simulation/")
-
-                // 감정 API 경로 추가 (별도 라인으로 분리)
-                || url.startsWith("/seems/api/emotions")
-
-                // 문자열 비교이기 때문에 실제 요청 경로가 /notice/detail/13일 경우,
-                // "/notice/detail/*".equals("/notice/detail/13") → false가 됩니다.
-                // 해결 방법: startsWith()로 경로 시작 여부로 검사
-                || url.equals("/js/**")
-                || url.endsWith(".png")
-                || url.equals("/notice/attachments/")  // notice 첨부파일들 등록
-                || url.equals("/payments/request/");
-
-
+        if (url.startsWith("/seems/api/psychological-test/image-question")) {
+            return true;
+        }
+        if (url.startsWith("/seems/api/psychological-test/submit-answer")) {
+            return true;
+        }
+        if (url.startsWith("/seems/api/psychological-test/results/")) {
+            return true;
+        }
+        if (url.startsWith("/seems/api/personality-test/questions")) {
+            return true;
+        }
+        if (url.startsWith("/seems/api/personality-test/submit-answers")) {
+            return true;
+        }
+        if (url.startsWith("/seems/api/personality-test/results/")) {
+            return true;
+        }
+        if (url.startsWith("/seems/api/personality-test/history/")) {
+            return true;
+        }
+        if (url.startsWith("/seems/api/psychological-test/")) {
+            return true;
+        }
+        if (url.startsWith("/seems/api/quest-rewards")) {
+            return true;
+        }
+        if (url.startsWith("/seems/api/user/points")) {
+            return true;
+        }
+        if (url.startsWith("/seems/api/user/stats")) {
+            return true;
+        }
+        if (url.startsWith("/seems/api/user/owned-titles")) {
+            return true;
+        }
+        if (url.startsWith("/api/simulation/")) {
+            return true;
+        }
+        if (url.startsWith("/seems/api/simulation/")) {
+            return true;
+        }
+        if (url.startsWith("/seems/api/emotions")) {
+            return true;
+        }
+        if (url.startsWith("/seems/api/face/")) {
+            return true;
+        }
+        if (url.startsWith("/seems/auth/face")) {
+            return true;
+        }
+        if (url.startsWith("/seems/user/signup")) {
+            return true;
+        }
+        if (url.startsWith("/seems/user/idchk")) {
+            return true;
+        }
+        if (url.startsWith("/seems/login")) {
+            return true;
+        }
+        if (url.startsWith("/seems/css/")) {
+            return true;
+        }
+        if (url.startsWith("/seems/js/")) {
+            return true;
+        }
+        if (url.startsWith("/seems/favicon.ico")) {
+            return true;
+        }
+        if (url.startsWith("/seems/api/face-signup")) {
+            return true;
+        }
+        if (url.startsWith("/api/face/login")) {
+            return true;
+        }
+        if (url.startsWith("/api/face/register")) {
+            return true;
+        }
+        if (url.startsWith("/api/face/")) {
+            return true;
+        }
+        if (url.startsWith("/auth/face-login")) {
+            return true;
+        }
+        if (url.startsWith("/notice/")) {
+            return true;
+        }
+        if (url.startsWith("/admin/")) {
+            return true;
+        }
+        if (url.startsWith("/js/")) {
+            return true;
+        }
+        if (url.endsWith(".png")) {
+            return true;
+        }
+        if (url.startsWith("/notice/attachments/")) {
+            return true;
+        }
+        if (url.startsWith("/payments/request/")) {
+            return true;
+        }
+        if (url.equals("/")) {
+            return true;
+        }
+        if (url.equals("/favicon.ico")) {
+            return true;
+        }
+        if (url.equals("/manifest.json")) {
+            return true;
+        }
+        if (url.startsWith("/public/")) {
+            return true;
+        }
+        if (url.startsWith("/auth/")) {
+            return true;
+        }
+        if (url.startsWith("/css/")) {
+            return true;
+        }
+        if (url.startsWith("/api/psychological-test/")) {
+            return true;
+        }
+        if (url.startsWith("/api/simulation/")) {
+            return true;
+        }
+        if (url.startsWith("/api/emotions")) {
+            return true;
+        }
+        if (url.startsWith("/seems/api/user/verification")) {
+            return true;
+        }
+        if (url.startsWith("/logout")) {
+            return false;
+        }
+        return false;
     }
 
 
-
-    // 필터의 주요 로직을 구현하는 메소드임
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) 
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        // 토큰 정보 추출해서 토큰이 유효한지 확인하는 로직 구현함 
-        String requestURI = request.getRequestURI();  // 요청한 서비스 url 추출
-        log.info("JWTFilter 작동중 - requestURI: {}", requestURI);  // 필터 작동 확인용
+        String requestURI = request.getRequestURI();
+        log.info("JWTFilter - Request URI: {}", requestURI);
 
-        // 그냥 통과시킬 url 처리
         if (isExcludedUrl(requestURI)) {
-            log.info("토큰 검사없이 통과 : " + requestURI);
-            filterChain.doFilter(request, response);  // 다음 단계로 넘김
+            log.info("Token check skipped for: {}", requestURI);
+            filterChain.doFilter(request, response);
             return;
         }
-        
-        log.info("토큰 검사 대상 URL: " + requestURI);
 
-        // 클라이언트 쪽에서 토큰 저장 방식을 미리 정해 놓고 맞춰야 함
-        String accessTokenHeader = request.getHeader("Authorization");
-        String refreshTokenHeader = request.getHeader("RefreshToken");
+        log.info("Token check target URL: {}", requestURI);
 
-        if (accessTokenHeader == null || accessTokenHeader.isEmpty()) {
-            log.warn("Authorization header is empty");
+        String authorizationHeader = request.getHeader("Authorization");
+
+        // 1. Authorization 헤더 존재 및 형식 확인
+        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+            log.warn("Authorization header is missing or invalid.");
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.getWriter().write("{\"error\":\"Missing or invalid Authorization header\"}");
+            return;
         }
-        if (refreshTokenHeader == null || refreshTokenHeader.isEmpty()) {
-            log.warn("Refresh header is empty");
+
+        String accessToken = authorizationHeader.substring("Bearer ".length());
+
+        // 2. Access Token 만료 여부 확인
+        if (jwtUtil.isTokenExpired(accessToken)) {
+            log.warn("Access Token has expired.");
+            // 클라이언트가 토큰 재발급을 시도하도록 401 응답과 함께 특정 헤더나 메시지를 보낼 수 있습니다.
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setHeader("token-expired", "AccessToken");
+            response.getWriter().write("{\"error\":\"Access Token expired\"}");
+            return;
         }
 
         try {
-                String accessToken = null;
-                String refreshToken = null;
-
-                if ((accessTokenHeader != null && refreshTokenHeader != null)) {
-                    // 각 해더에서 token 추출
-                    accessToken = accessTokenHeader.substring("Bearer ".length());
-                    refreshToken = refreshTokenHeader.substring("Bearer ".length());
-
-                    // AccessToken에서 사용자 이름 추출 및 인증 정보 설정
-                    String username = jwtUtil.getUseridFromToken(accessToken);
-                    UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-                    UsernamePasswordAuthenticationToken authenticationToken =
-                            new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-                    SecurityContextHolder.getContext().setAuthentication(authenticationToken);
-
-                // RefreshToken 만료, AccessToken 유효
-                if (!jwtUtil.isTokenExpired(accessToken) && jwtUtil.isTokenExpired(refreshToken)) {
-                    log.warn("RefreshToken 만료, AccessToken 유효.");
-                    // 요청 에러에 대한 스트림 열어서 에러 정보를 클라이언트에게 보냄
-                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    response.setHeader("token-expired", "RefreshToken");
-                    response.getWriter().write("{\"error\":\"RefreshToken expired\"}");
-                    return;
-                }
-
-                // AccessToken 만료, RefreshToken 유효 (위의 조건 통과했으므로, 질문 생략해도 됨)
-                if (jwtUtil.isTokenExpired(accessToken) && !jwtUtil.isTokenExpired(refreshToken)) {
-                    log.warn("AccessToken 만료, RefreshToken 유효 - ReIssueController로 전달");
-                    // AccessToken이 만료되어도 RefreshToken이 유효하면 요청을 통과시킴
-                    // ReIssueController에서 토큰 갱신 처리
-                    filterChain.doFilter(request, response);
-                    return;
-                }
-                
-                // AccessToken 만료, RefreshToken도 만료
-                if (jwtUtil.isTokenExpired(accessToken) && jwtUtil.isTokenExpired(refreshToken)) {
-                    log.warn("AccessToken 만료, RefreshToken도 만료.");
-                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    response.setHeader("token-expired", "Both");
-                    response.getWriter().write("{\"error\":\"Both tokens expired\"}");
-                    return;
-                }
-            } else {
-                // 둘 다 null 이면
-                log.warn("RefreshToken Null, AccessToken Null.");
-                // 요청 에러에 대한 스트림 열어서 에러 정보를 클라이언트에게 보냄
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.getWriter().write("{\"error\":\"missing or invalid tokens\"}");
-                return;
+            // 3. Access Token에서 사용자 정보 추출
+            String username = jwtUtil.getUseridFromToken(accessToken);
+            if (username == null) {
+                throw new Exception("Invalid Access Token: Username is null");
             }
 
-            // 두 토큰이 정상이면 로그인 상태이므로 다음 단계로 넘김
+            // 4. UserDetails 객체를 가져와 SecurityContext에 인증 정보 설정
+            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+            UsernamePasswordAuthenticationToken authenticationToken =
+                    new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+            SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+
+            // 5. 다음 필터로 요청 전달
             filterChain.doFilter(request, response);
 
         } catch (Exception e) {
-            log.error("JWTFilter 에서 토큰 검사 중 에러 발생함", e);
-            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            response.getWriter().write("{\"error\":\"internal server error\"}");
+            log.error("Error during JWT token validation", e);
+            SecurityContextHolder.clearContext(); // 보안 컨텍스트 정리
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.getWriter().write("{\"error\":\"Invalid Token\"}");
         }
-        
     }
 }

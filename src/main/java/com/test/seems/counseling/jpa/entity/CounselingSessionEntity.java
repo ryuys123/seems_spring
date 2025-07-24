@@ -47,6 +47,13 @@ public class CounselingSessionEntity {
     @Column(name = "CREATED_AT", updatable = false)
     private Date createdAt;
 
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = new Date();
+        }
+    }
+
     @Builder
     public CounselingSessionEntity(UserEntity user, String topic, String method, Date startTime, Date endTime) {
         this.user = user;

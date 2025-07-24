@@ -31,6 +31,11 @@ public class ChatController {
         List<Map<String, String>> messages = chatRequest.getMessages();
         Integer currentCoreQuestionIndex = chatRequest.getCurrent_core_question_index();
 
+        // 대화 내용이 너무 길어지는 것을 방지하기 위해 최근 10개의 메시지만 사용합니다.
+        if (messages != null && messages.size() > 10) {
+            messages = messages.subList(messages.size() - 10, messages.size());
+        }
+
         if (messages == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Messages cannot be null");
         }
