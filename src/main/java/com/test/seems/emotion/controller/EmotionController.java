@@ -51,4 +51,13 @@ public class EmotionController {
         return ResponseEntity.ok(emotionLogs);
     }
 
+    @GetMapping("/emotion-logs/{userId}/today")
+    public ResponseEntity<EmotionLog> getTodayEmotionLog(@PathVariable String userId) {
+        EmotionLog todayLog = emotionService.getTodayLatestEmotionLog(userId);
+        if (todayLog != null) {
+            return ResponseEntity.ok(todayLog);
+        } else {
+            return ResponseEntity.noContent().build();
+        }
+    }
 }

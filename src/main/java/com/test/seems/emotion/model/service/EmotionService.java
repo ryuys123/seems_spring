@@ -63,4 +63,19 @@ public class EmotionService {
         return logs;
     }
 
+    public EmotionLog getTodayLatestEmotionLog(String userId) {
+        // 오늘 날짜의 감정 기록 중 가장 최근 데이터 반환
+        Optional<EmotionLog> todayLogOpt = emotionLogRepository.findTodayEmotionByUserId(userId);
+        EmotionLog log = null;
+        if (todayLogOpt.isPresent()) {
+            log = todayLogOpt.get();
+        } else {
+            // 오늘 감정이 없으면 null 반환 (가장 최근 감정이 필요하면 아래 주석 해제)
+            // log = emotionLogRepository.findLatestEmotionByUserId(userId).orElse(null);
+        }
+        if (log != null && log.getEmotion() != null) {
+            log.getEmotion().setEmoji(EMOTION_EMOJIS.getOrDefault(log.getEmotion().getEmotionName(), "❓"));
+        }
+        return log;
+    }
 }

@@ -20,9 +20,7 @@ import java.util.Map;
 @Slf4j
 @CrossOrigin(origins = "http://localhost:3000")
 public class QuestRewardController {
-    
     private final QuestRewardService questRewardService;
-    
     /**
      * 모든 뱃지 보상 목록 조회
      */
@@ -36,7 +34,6 @@ public class QuestRewardController {
             return ResponseEntity.internalServerError().build();
         }
     }
-    
     /**
      * 사용자 포인트 조회
      */
@@ -50,7 +47,6 @@ public class QuestRewardController {
             return ResponseEntity.internalServerError().build();
         }
     }
-    
     /**
      * 사용자 통계 조회
      */
@@ -64,7 +60,6 @@ public class QuestRewardController {
             return ResponseEntity.internalServerError().build();
         }
     }
-    
     /**
      * (변경) 내 뱃지 목록 조회 - rewardId, isEquipped 포함
      */
@@ -78,7 +73,6 @@ public class QuestRewardController {
             return ResponseEntity.internalServerError().build();
         }
     }
-
     /**
      * 뱃지 장착 API
      */
@@ -95,7 +89,6 @@ public class QuestRewardController {
             return ResponseEntity.internalServerError().body("뱃지 장착 중 오류가 발생했습니다.");
         }
     }
-
     /**
      * (변경) 뱃지 구매 - isEquipped 포함 응답
      */
@@ -113,7 +106,6 @@ public class QuestRewardController {
             return ResponseEntity.internalServerError().body(Map.of("error", "구매 중 오류가 발생했습니다."));
         }
     }
-    
     /**
      * 퀘스트 상점 메인 페이지 데이터 조회
      */
@@ -127,7 +119,6 @@ public class QuestRewardController {
             return ResponseEntity.internalServerError().build();
         }
     }
-    
     /**
      * 포인트 추가
      */
@@ -136,7 +127,6 @@ public class QuestRewardController {
         try {
             String userId = (String) request.get("userId");
             Integer points = Integer.valueOf(request.get("points").toString());
-            
             questRewardService.addPoints(userId, points);
             return ResponseEntity.ok("포인트가 추가되었습니다.");
         } catch (QuestException e) {
@@ -149,7 +139,6 @@ public class QuestRewardController {
             return ResponseEntity.internalServerError().body("포인트 추가 중 오류가 발생했습니다.");
         }
     }
-    
     /**
      * 포인트 차감
      */
@@ -158,7 +147,6 @@ public class QuestRewardController {
         try {
             String userId = (String) request.get("userId");
             Integer points = Integer.valueOf(request.get("points").toString());
-            
             questRewardService.deductPoints(userId, points);
             return ResponseEntity.ok("포인트가 차감되었습니다.");
         } catch (QuestException e) {
@@ -171,7 +159,6 @@ public class QuestRewardController {
             return ResponseEntity.internalServerError().body("포인트 차감 중 오류가 발생했습니다.");
         }
     }
-    
     /**
      * 포인트 업데이트 (통합)
      */
@@ -180,7 +167,6 @@ public class QuestRewardController {
         try {
             String userId = (String) request.get("userId");
             Integer points = Integer.valueOf(request.get("points").toString());
-            
             questRewardService.updatePoints(userId, points);
             return ResponseEntity.ok("포인트가 업데이트되었습니다.");
         } catch (QuestException e) {
@@ -193,7 +179,6 @@ public class QuestRewardController {
             return ResponseEntity.internalServerError().body("포인트 업데이트 중 오류가 발생했습니다.");
         }
     }
-
     /**
      * 장착중인 뱃지 1개 + 상세정보 반환
      */
