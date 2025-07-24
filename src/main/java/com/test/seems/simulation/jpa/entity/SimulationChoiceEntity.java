@@ -1,10 +1,10 @@
 package com.test.seems.simulation.jpa.entity;
 
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import jakarta.persistence.*;
 
 @Data
 @Entity
@@ -33,11 +33,6 @@ public class SimulationChoiceEntity {
     @Column(name = "SELECTED_TRAIT", length = 50)
     private String selectedTrait;
 
-    // 엔티티를 DTO로 변환하는 메서드 (Builder 사용)
-    // DTO 클래스 (SimulationChoiceDTO) 정의 후 구현 가능
-    // public SimulationChoiceDTO toDto() {
-    //     return SimulationChoiceDTO.builder()
-    //             // ...
-    //             .build();
-    // }
+
+
 }

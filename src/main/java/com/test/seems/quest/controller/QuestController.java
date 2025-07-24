@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/quests")
@@ -86,8 +87,14 @@ public class QuestController {
             @PathVariable Long questId, 
             @PathVariable String stepId, 
             @RequestParam String userId,
-            @RequestParam(defaultValue = "true") Boolean completed) {
+            @RequestParam(defaultValue = "true") Boolean completed,
+            @RequestBody(required = false) Map<String, Object> requestBody) {
         try {
+            // POST Body에서 completed 값을 우선적으로 사용
+            if (requestBody != null && requestBody.containsKey("completed")) {
+                completed = Boolean.valueOf(requestBody.get("completed").toString());
+            }
+            
             questService.completeQuestStep(userId, questId, stepId, completed);
             return ResponseEntity.ok("퀘스트 단계가 완료되었습니다.");
         } catch (QuestException e) {
@@ -127,6 +134,44 @@ public class QuestController {
             return ResponseEntity.ok(stats);
         } catch (Exception e) {
             log.error("Failed to get quest stats for userId: {}", userId, e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+    
+    /**
+     * 퀘스트 삭제
+     */
+    @DeleteMapping("/{questId}")
+    public ResponseEntity<String> deleteQuest(@PathVariable Long questId, @RequestParam String userId) {
+        try {
+            questService.deleteQuest(userId, questId);
+            return ResponseEntity.ok("퀘스트가 삭제되었습니다.");
+        } catch (QuestException e) {
+            log.warn("Quest deletion failed for userId: {}, questId: {}, reason: {}", userId, questId, e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            log.error("Failed to delete quest for userId: {}, questId: {}", userId, questId, e);
+            return ResponseEntity.internalServerError().body("퀘스트 삭제 중 오류가 발생했습니다.");
+        }
+    }
+    
+    /**
+     * 퀘스트 업데이트
+     */
+    @PutMapping("/{questId}")
+    public ResponseEntity<QuestDto> updateQuest(
+            @PathVariable Long questId, 
+            @RequestParam String userId,
+            @RequestParam(required = false) String questName,
+            @RequestParam(required = false) Integer questPoints) {
+        try {
+            QuestDto updatedQuest = questService.updateQuest(userId, questId, questName, questPoints);
+            return ResponseEntity.ok(updatedQuest);
+        } catch (QuestException e) {
+            log.warn("Quest update failed for userId: {}, questId: {}, reason: {}", userId, questId, e.getMessage());
+            return ResponseEntity.badRequest().build();
+        } catch (Exception e) {
+            log.error("Failed to update quest for userId: {}, questId: {}", userId, questId, e);
             return ResponseEntity.internalServerError().build();
         }
     }

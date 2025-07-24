@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 
+import java.sql.Date;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -143,5 +145,27 @@ public class FaqController {
         }
     }
 
+    // 상담 종료 처리
+    @PutMapping("/faq/detail/{faqNo}/close")
+    public ResponseEntity<Void> closeFaq(@PathVariable int faqNo) {
+        try {
+            FaqService.updateFaqStatusOnly(faqNo, "CLOSED");
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
 
+    @PutMapping("/faq/auto-close")
+    public ResponseEntity<Void> autoCloseFaqs() {
+        FaqService.autoCloseFaqs();
+        return ResponseEntity.ok().build();
+    }
+
+    // 인증 없이 접근 가능한 GET 방식 테스트용 엔드포인트
+    @GetMapping("/faq/auto-close-test")
+    public ResponseEntity<String> testAutoCloseFaqs() {
+        FaqService.autoCloseFaqs();
+        return ResponseEntity.ok("자동 종료 테스트 완료!");
+    }
 }

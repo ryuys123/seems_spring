@@ -1,15 +1,23 @@
 package com.test.seems.simulation.controller;
 
-import com.test.seems.simulation.model.dto.*;
+import com.test.seems.simulation.model.dto.ProgressSimulationRequest;
+import com.test.seems.simulation.model.dto.Simulation;
+import com.test.seems.simulation.model.dto.SimulationQuestion;
+import com.test.seems.simulation.model.dto.SimulationResult;
+import com.test.seems.simulation.model.dto.StartSimulationRequest;
 import com.test.seems.simulation.model.service.SimulationService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.http.HttpStatus;
 
-import java.util.List;
+import java.util.List; // List 임포트 추가
 import java.util.Optional;
 
+/**
+ * React 프론트엔드와 통신하여 심리 시뮬레이션의 전체 흐름을 관리하는 컨트롤러입니다.
+ * 개발 환경에서는 localhost:3000에서의 요청을 허용합니다.
+ */
 @CrossOrigin(origins = "http://localhost:3000")
 @RestController
 @RequestMapping("/api/simulation")
@@ -18,79 +26,88 @@ public class SimulationController {
 
     private final SimulationService simulationService;
 
-    // 1. 활성화된 시나리오 목록 조회
-    // GET /api/simulation/scenarios
-    @GetMapping("/scenarios")
-    public ResponseEntity<List<Simulation>> getScenarios() {
-        List<Simulation> scenarios = simulationService.getActiveScenarios();
-        return ResponseEntity.ok(scenarios);
+    /**
+     * ✅ [수정됨] GET /api/simulation/list
+     * 활성화된 모든 시뮬레이션 목록을 조회합니다.
+     * @return 활성화된 시뮬레이션 DTO 목록 (List<Simulation>)
+     */
+    @GetMapping("/list") // 프론트엔드의 '/list' 요청에 응답
+    public ResponseEntity<List<Simulation>> getActiveSimulationsList() { // 메서드 이름도 명확하게 변경
+        // 서비스의 getActiveSimulations() 메서드를 호출하여 목록을 가져옵니다.
+        List<Simulation> activeSimulations = simulationService.getActiveSimulations();
+        return ResponseEntity.ok(activeSimulations); // 목록을 반환
     }
 
-    // 2. 시뮬레이션 시작 및 첫 질문 생성
-    // POST /api/simulation/start
+    /**
+     * ✅ [신규] GET /api/simulation/today
+     * 프론트엔드 메인 페이지에 보여줄 '오늘의 시뮬레이션' 정보를 조회합니다.
+     * @return 오늘 요일에 해당하는 시나리오 DTO. 만약 오늘 해당하는 시나리오가 없다면 404 Not Found를 반환합니다.
+     */
+    @GetMapping("/today") // '오늘의 시뮬레이션'을 위한 새로운 엔드포인트
+    public ResponseEntity<Simulation> getTodaysSimulation() {
+        Optional<Simulation> todaySimulation = simulationService.getTodaysSimulation();
+        return todaySimulation.map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+
+    /**
+     * [POST /api/simulation/start]
+     * 사용자가 특정 시나리오를 선택하고 '시작하기'를 눌렀을 때 호출됩니다.
+     * 첫 번째 질문 데이터를 반환합니다. (변경 없음)
+     * @param request scenarioId, userId를 담은 요청 DTO
+     * @return 생성된 첫 번째 질문 DTO
+     */
     @PostMapping("/start")
     public ResponseEntity<SimulationQuestion> startSimulation(@RequestBody StartSimulationRequest request) {
-        // 서비스에서 시뮬레이션 세션을 시작하고 첫 질문을 생성
         SimulationQuestion firstQuestion = simulationService.startSimulation(request.getScenarioId(), request.getUserId());
-
-        if (firstQuestion != null) {
-            // 첫 질문 정보를 반환
-            return ResponseEntity.status(HttpStatus.CREATED).body(firstQuestion);
-        } else {
-            // 시뮬레이션 시작 실패 (예: AI 연동 오류 등)
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(firstQuestion);
     }
 
-    // 3. 시뮬레이션 진행 (선택지 제출 및 다음 질문 받기)
-    // POST /api/simulation/progress
+    /**
+     * [POST /api/simulation/progress]
+     * 사용자가 시뮬레이션 진행 중 선택지를 고를 때마다 호출됩니다.
+     * 다음 질문 또는 시뮬레이션 종료 신호를 반환합니다. (변경 없음)
+     * @param request settingId, 질문 번호, 선택 내용 등을 담은 요청 DTO
+     * @return 다음 질문 DTO (종료 신호 포함)
+     */
     @PostMapping("/progress")
     public ResponseEntity<SimulationQuestion> progressSimulation(@RequestBody ProgressSimulationRequest request) {
-        // 서비스에서 선택을 저장하고 AI를 통해 다음 질문 생성
-        SimulationQuestion nextQuestion = simulationService.processChoiceAndGenerateNextQuestion(
+        SimulationQuestion nextStep = simulationService.processChoiceAndGenerateNextQuestion(
                 request.getSettingId(),
                 request.getQuestionNumber(),
                 request.getChoiceText(),
                 request.getSelectedTrait()
         );
-
-        if (nextQuestion != null) {
-            // AI가 생성한 다음 질문 반환
-            return ResponseEntity.ok(nextQuestion);
-        } else {
-            // 다음 질문 생성이 실패했거나 (AI 응답 오류 등),
-            // 시뮬레이션이 종료 단계일 경우 (resultDTO를 반환해야 함)
-            // 이 단계에서는 시뮬레이션 종료 시점을 별도로 처리해야 할 수 있습니다.
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        return ResponseEntity.ok(nextStep);
     }
 
-    // 4. 시뮬레이션 결과 완료 및 분석
-    // POST /api/simulation/complete/{settingId}
+    /**
+     * [POST /api/simulation/complete/{settingId}]
+     * /progress API가 종료 신호(isSimulationEnded: true)를 보내면,
+     * 프론트엔드에서 이 API를 호출하여 최종 분석 결과를 요청합니다. (변경 없음)
+     * @param settingId 현재 진행 중인 시뮬레이션의 세션 ID
+     * @return 분석된 최종 결과 DTO
+     */
     @PostMapping("/complete/{settingId}")
-    public ResponseEntity<SimulationResultDTO> completeSimulation(@PathVariable Long settingId) {
-        // 시뮬레이션 결과를 분석하고 저장
-        SimulationResultDTO result = simulationService.analyzeAndSaveResult(settingId);
-
-        if (result != null) {
-            return ResponseEntity.ok(result);
-        } else {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+    public ResponseEntity<SimulationResult> completeSimulation(@PathVariable Long settingId) {
+        // 이 메서드는 SimulationService.analyzeAndSaveResult(settingId)를 호출합니다.
+        // 현재 서비스 로직이 단일 인자(settingId)만 받는 것으로 복원되었음을 가정합니다.
+        SimulationResult result = simulationService.analyzeAndSaveResult(settingId);
+        return ResponseEntity.ok(result);
     }
 
-    // 5. 중간 저장된 시뮬레이션 불러오기
-    // GET /api/simulation/resume?userId={userId}
+    /**
+     * [GET /api/simulation/resume]
+     * 사용자가 중간에 이탈했다가 다시 접속했을 때,
+     * 가장 최근에 진행 중이던 시뮬레이션을 이어하기 위해 호출합니다. (변경 없음)
+     * @param userId 현재 접속한 사용자의 ID
+     * @return 진행 중이던 시뮬레이션 세션 정보 DTO
+     */
     @GetMapping("/resume")
     public ResponseEntity<Simulation> resumeSimulation(@RequestParam String userId) {
-        // 사용자의 가장 최근 세션 정보를 조회
         Optional<Simulation> setting = simulationService.resumeSimulation(userId);
-
-        if (setting.isPresent()) {
-            return ResponseEntity.ok(setting.get());
-        } else {
-            // 저장된 진행 상황이 없을 경우
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        }
+        return setting.map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }

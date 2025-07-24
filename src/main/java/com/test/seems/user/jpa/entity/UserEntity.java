@@ -53,8 +53,8 @@ public class UserEntity {
 
     @PrePersist
     public void prePersist() {
-        createdAt = new GregorianCalendar().getGregorianChange();    //현재 날짜 시간 적용
-        updatedAt = new GregorianCalendar().getGregorianChange();  //현재 날짜 시간 적용
+        createdAt = new GregorianCalendar().getTime();    //현재 날짜 시간 적용
+        updatedAt = new GregorianCalendar().getTime();  //현재 날짜 시간 적용
         if (faceLoginEnabled == null) {
             faceLoginEnabled = false; // 기본값은 비활성화
         }

@@ -10,11 +10,16 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class FaceRegistrationRequest {
-    
+
     /**
      * 사용자 ID
      */
     private String userId;
+
+    /**
+     * 비밀번호
+     */
+    private String password;
     
     /**
      * 얼굴 이미지 데이터 (Base64 인코딩)
@@ -25,4 +30,4 @@ public class FaceRegistrationRequest {
      * 페이스 이름
      */
     private String faceName;
-} 
+}

@@ -166,9 +166,6 @@ public class JWTFilter extends OncePerRequestFilter {
         if (url.startsWith("/api/emotions")) {
             return true;
         }
-        if (url.startsWith("/seems/api/user/verification")) {
-            return true;
-        }
         if (url.startsWith("/logout")) {
             return false;
         }

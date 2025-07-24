@@ -45,22 +45,25 @@ public class FaceLoginFilter extends OncePerRequestFilter {
         try {
             // 페이스 로그인 토큰 검증
             String category = jwtUtil.getCategory(token);
+            String authType = jwtUtil.getClaimsFromToken(token).get("authType", String.class);
             
-            if ("face".equals(category)) {
-                // 페이스 로그인 토큰인 경우
+            // 페이스 로그인 토큰인 경우 (category가 access/refresh이고 authType이 FACE인 경우)
+            if (("access".equals(category) || "refresh".equals(category)) && "FACE".equals(authType)) {
                 String userId = jwtUtil.getUserId(token);
                 String username = jwtUtil.getUsername(token);
                 
                 if (userId != null && username != null) {
-                    // 인증 객체 생성
+                    // 인증 객체 생성 (userId를 principal로 세팅)
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        username, null, new ArrayList<>()
+                        userId, null, new ArrayList<>()
                     );
                     
                     // SecurityContext에 인증 정보 설정
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                     
-                    log.debug("페이스 로그인 토큰 검증 성공: 사용자 {}", username);
+                    log.info("페이스 로그인 토큰 검증 성공: 사용자 {} (category: {}, authType: {})", userId, category, authType);
+                } else {
+                    log.warn("페이스 로그인 토큰에서 사용자 정보 추출 실패: userId={}, username={}", userId, username);
                 }
             }
             

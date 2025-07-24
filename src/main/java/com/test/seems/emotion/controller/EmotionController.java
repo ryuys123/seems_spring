@@ -13,6 +13,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
+@CrossOrigin(origins = "http://localhost:3000")
 public class EmotionController {
 
     @Autowired
@@ -49,4 +50,5 @@ public class EmotionController {
         List<EmotionLog> emotionLogs = emotionService.getUserEmotionLogs(userId);
         return ResponseEntity.ok(emotionLogs);
     }
+
 }

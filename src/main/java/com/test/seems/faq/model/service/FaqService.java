@@ -3,15 +3,21 @@ package com.test.seems.faq.model.service;
 import com.test.seems.faq.jpa.entity.FaqEntity;
 import com.test.seems.faq.jpa.repository.FaqRepository;
 import com.test.seems.faq.model.dto.Faq;
+import com.test.seems.faq.model.dto.Reply;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
+import java.sql.Date;
+import java.util.List;
 import java.util.Optional;
 
 @Slf4j   // Logger 객체 선언임, 별도의 로그 객체 생성구문 필요없음, 레퍼런스는 log 임
@@ -22,6 +28,8 @@ public class FaqService  {
     // jpa 가 제공하는 기본 메소드를 사용하려면
     @Autowired
     private final FaqRepository faqRepository;
+
+    private final ReplyService ReplyService;
 
     // ArrayList<Faq> 리턴하는 메소드들이 사용하는 중복 코드는 별도의 메소드로 작성함
     private ArrayList<Faq> toList(Page<FaqEntity> page) {
@@ -94,4 +102,57 @@ public class FaqService  {
         return updatedEntity != null ? 1 : 0;
 
     }
-}
+
+    public void updateFaqStatusOnly(int faqNo, String status) {
+        Optional<FaqEntity> entityOpt = faqRepository.findById(faqNo);
+        if (entityOpt.isPresent()) {
+            FaqEntity faq = entityOpt.get();
+            faq.setStatus(status);
+            faqRepository.save(faq);
+        }
+    }
+
+    public void updateFaqStatusAndReDate(int faqNo, String status) {
+        Optional<FaqEntity> entityOpt = faqRepository.findById(faqNo);
+        if (entityOpt.isPresent()) {
+            FaqEntity faq = entityOpt.get();
+            faq.setStatus(status);
+            faq.setReFaqDate(new Date(System.currentTimeMillis()));
+            faqRepository.save(faq);
+        }
+    }
+
+    @Scheduled(cron = "0 0 0 * * *")  // 매일 자정
+    public void autoCloseFaqs() {
+        // 오늘 기준 7일 전 날짜 계산
+        LocalDate sevenDaysAgo = LocalDate.now().minusDays(7);
+        Date targetDate = Date.valueOf(sevenDaysAgo);
+
+        // 상태가 CLOSED가 아니고, reFaqDate가 7일 이상 지난 FAQ 조회
+        List<FaqEntity> faqsToClose = faqRepository.findByStatusNotAndReFaqDateBefore("CLOSED", targetDate);
+
+        int closedCount = 0;
+
+        for (FaqEntity faq : faqsToClose) {
+            List<Reply> replies = ReplyService.getRepliesByFaqNo(faq.getFaqNo());
+            if (!replies.isEmpty()) {
+                Reply last = replies.get(replies.size() - 1);
+                if ("user001".equals(last.getUserid())) {
+                    faq.setStatus("CLOSED");
+                    faqRepository.save(faq);
+                    closedCount++;
+                }
+            }
+        }
+
+        log.info("🔒 자동 종료된 FAQ 수: {}", closedCount);
+        }
+
+        // 서버 시작시에도 status 변경 실행
+    @PostConstruct
+    public void initAutoCloseOnStartup() {
+        log.info("🚀 서버 시작 시 자동 FAQ 종료 작업 실행 중...");
+        autoCloseFaqs();
+    }
+    }
+
