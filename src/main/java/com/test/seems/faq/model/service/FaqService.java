@@ -4,6 +4,7 @@ import com.test.seems.faq.jpa.entity.FaqEntity;
 import com.test.seems.faq.jpa.repository.FaqRepository;
 import com.test.seems.faq.model.dto.Faq;
 import com.test.seems.faq.model.dto.Reply;
+import com.test.seems.notice.model.dto.Notice;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.sql.Date;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -40,12 +42,29 @@ public class FaqService  {
         return list;
     }
 
+    private ArrayList<Faq> toList(List<FaqEntity> entities) {
+        ArrayList<Faq> list = new ArrayList<>();
+        for (FaqEntity faqEntity : entities) {
+            list.add(faqEntity.toDto());
+        }
+        return list;
+    }
+
     public int selectListCount() {
         return (int)faqRepository.count();
     }
 
+    //사용자용 게시글 조회
     public ArrayList<Faq> selectList(Pageable pageable) {
         return toList(faqRepository.findAll(pageable));
+    }
+
+    // 관리자용 게시글 조회
+    public ArrayList<Faq> selectListForAdmin(Pageable pageable) {
+        log.info("✅ 관리자용 FAQ 정렬 로직 실행됨");
+
+        Page<FaqEntity> page = faqRepository.findAllWithCustomSort(pageable);
+        return toList(page);
     }
 
     public Faq selectFaq(int faqNo) {
@@ -154,5 +173,84 @@ public class FaqService  {
         log.info("🚀 서버 시작 시 자동 FAQ 종료 작업 실행 중...");
         autoCloseFaqs();
     }
+
+    // FAQ글 검색 관련 (관리자용) **********************************************************
+    public int selectSearchTitleCount(String keyword) {
+		/* sql :
+		* 	select count(*) from notice
+			where title like '%' || #{ keyword } || '%'
+		* */
+        return faqRepository.countByTitleContainingIgnoreCase(keyword);
     }
+
+
+    public int selectSearchContentCount(String keyword) {
+		/* sql :
+		* 	select count(*) from notice
+			where noticecontent like '%' || #{ keyword } || '%'
+		* */
+        return faqRepository.countByContentContainingIgnoreCase(keyword);
+    }
+
+
+    public int selectSearchDateCount(LocalDate begin, LocalDate end) {
+		/* sql :
+		* 	select count(*) from notice
+			where noticedate between #{ begin } and #{ end }
+		* */
+        return faqRepository.countByFaqDateBetween(begin, end);
+    }
+
+    public int selectSearchStatusCount(String keyword) {
+        return faqRepository.countByStatusContainingIgnoreCase(keyword);
+    }
+
+
+    public ArrayList<Faq> selectSearchTitle(String keyword, Pageable pageable) {
+		/* sql :
+			select *
+			from (select rownum rnum, noticeno, title, noticedate, noticewriter, noticecontent,
+						original_filepath, rename_filepath, importance, imp_end_date, readcount
+				  from (select * from notice
+						where title like '%' || #{ keyword } || '%'
+						order by importance desc, noticedate desc, noticeno desc))
+			where rnum between #{ startRow } and #{ endRow }
+		* */
+        return toList(faqRepository.findByTitleContainingIgnoreCaseOrderByFaqDateDescFaqNoDesc(keyword, pageable));
+    }
+
+
+    public ArrayList<Faq> selectSearchContent(String keyword, Pageable pageable) {
+		/* sql :
+		* 	select *
+			from (select rownum rnum, noticeno, title, noticedate, noticewriter, noticecontent,
+						original_filepath, rename_filepath, importance, imp_end_date, readcount
+				  from (select * from notice
+						where noticecontent like '%' || #{ keyword } || '%'
+						order by importance desc, noticedate desc, noticeno desc))
+			where rnum between #{ startRow } and #{ endRow }
+		* */
+        return toList(faqRepository.findByContentContainingIgnoreCaseOrderByFaqDateDescFaqNoDesc(keyword, pageable));
+    }
+
+
+    public ArrayList<Faq> selectSearchDate(LocalDate begin, LocalDate end, Pageable pageable) {
+		/* sql :
+		* 	select *
+			from (select rownum rnum, noticeno, title, noticedate, noticewriter, noticecontent,
+						original_filepath, rename_filepath, importance, imp_end_date, readcount
+				  from (select * from notice
+						where noticedate between #{ begin } and #{ end }
+						order by importance desc, noticedate desc, noticeno desc))
+			where rnum between #{ startRow } and #{ endRow }
+		* */
+        return toList(faqRepository.findByFaqDateBetweenOrderByFaqDateDescFaqNoDesc(
+                begin, end, pageable));
+    }
+
+    public ArrayList<Faq> selectSearchStatus(String keyword, Pageable pageable) {
+        return toList(faqRepository.findByStatusContainingIgnoreCaseOrderByFaqDateDescFaqNoDesc(keyword, pageable));
+    }
+
+}
 

@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Range;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.sql.Date;
@@ -21,4 +22,39 @@ public interface FaqRepository extends JpaRepository<FaqEntity, Integer> {
 
     // 상태가 CLOSED가 아닌 FAQ들 중에서, 7일 이상 지난 항목만 가져오기
     List<FaqEntity> findByStatusNotAndReFaqDateBefore(String status, Date date);
+
+    @Query("SELECT f FROM FaqEntity f " +
+            "ORDER BY " +
+            "CASE f.status " +
+            "   WHEN 'PENDING' THEN 0 " +
+            "   WHEN 'ANSWERED' THEN 1 " +
+            "   WHEN 'CLOSED' THEN 2 " +
+            "   ELSE 99 " +
+            "END, " +
+            "f.faqNo ASC")
+    Page<FaqEntity> findAllWithCustomSort(Pageable pageable);
+
+    // FAQ글 검색 관련 (관리자용) **********************************************************
+    //제목 키워드 검색 관련 목록 갯수 조회용
+    int countByTitleContainingIgnoreCase(String keyword);
+    //제목 검색 목록 조회용 (페이지 적용)
+    Page<FaqEntity> findByTitleContainingIgnoreCaseOrderByFaqDateDescFaqNoDesc(String keyword, Pageable pageable);
+
+    //내용 키워드 검색 관련 목록 갯수 조회용
+    int countByContentContainingIgnoreCase(String keyword);
+    //내용 검색 목록 조회용 (페이지 적용)
+    Page<FaqEntity> findByContentContainingIgnoreCaseOrderByFaqDateDescFaqNoDesc(String keyword, Pageable pageable);
+
+    //날짜 검색 관련 목록 갯수 조회용
+    int countByFaqDateBetween(LocalDate begin, LocalDate end);
+    //날짜 검색 목록 조회용 (페이지 적용)
+    Page<FaqEntity> findByFaqDateBetweenOrderByFaqDateDescFaqNoDesc(LocalDate begin, LocalDate end, Pageable pageable);
+
+    //답변상태 검색 관련 목록 갯수 조회용
+    int countByStatusContainingIgnoreCase(String keyword);
+    //내용 검색 목록 조회용 (페이지 적용)
+    Page<FaqEntity> findByStatusContainingIgnoreCaseOrderByFaqDateDescFaqNoDesc(String keyword, Pageable pageable);
 }
+
+
+

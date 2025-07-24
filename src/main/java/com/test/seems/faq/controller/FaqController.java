@@ -4,6 +4,7 @@ import com.test.seems.common.Paging;
 import com.test.seems.common.Search;
 import com.test.seems.faq.model.dto.Faq;
 import com.test.seems.faq.model.service.FaqService;
+import com.test.seems.notice.model.dto.Notice;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -39,6 +40,7 @@ public class FaqController {
     @ResponseBody  // ResponseEntity<String> 인 경우는 생략해도 됨
     public ResponseEntity<Map<String, Object>> FaqListMethod(
             @RequestParam(name = "page", required = false) String page,
+            @RequestParam(name = "role", required = false) String role,
             @RequestParam(name = "limit", required = false) String slimit) {
         // 페이징 처리
         try {
@@ -60,8 +62,15 @@ public class FaqController {
         //JPA 가 제공하는 Pageable 객체 생성
         Pageable pageable = PageRequest.of(currentPage - 1, limit, Sort.Direction.DESC, "faqNo");
 
-        // 서비스 모델로 페이징 적용된 목록 조회 요청하고 결과받기
-        ArrayList<Faq> list = FaqService.selectList(pageable);
+        // 서비스 모델로 페이징 적용된 목록 조회 요청하고 결과받기 (일반사용자용)
+        ArrayList<Faq> list;
+            System.out.println("📌 현재 role 값: " + role);
+
+            if ("ADMIN".equalsIgnoreCase(role)) {
+                list = FaqService.selectListForAdmin(pageable); // ✅ 관리자용
+            } else {
+                list = FaqService.selectList(pageable); // ✅ 일반 사용자용
+            }
 
         Map<String, Object> map = new HashMap<>();
         map.put("list", list);
@@ -168,4 +177,134 @@ public class FaqController {
         FaqService.autoCloseFaqs();
         return ResponseEntity.ok("자동 종료 테스트 완료!");
     }
+
+
+    // FAQ글 검색 관련 (관리자용) **********************************************************
+
+    // FAQ 제목 검색 목록보기 요청 처리용 (페이징 처리 : 한 페이지에 10개씩 출력 처리)
+    @GetMapping("/faq/search/title")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> searchNoticeByTitle(
+            @RequestParam("action") String action,
+            @RequestParam("keyword") String keyword,
+            @RequestParam(name = "page", required = false, defaultValue = "1") int page,
+            @RequestParam(name = "limit", required = false, defaultValue = "10") int limit) {
+        log.info("/faq/search/title : " + keyword);
+        int listCount = FaqService.selectSearchTitleCount(keyword);
+
+        Paging paging = new Paging(listCount, limit, page, "/faq/search/title");
+        paging.calculate();
+
+        Pageable pageable = PageRequest.of(page - 1, limit, Sort.Direction.DESC, "faqNo");
+        ArrayList<Faq> list = FaqService.selectSearchTitle(keyword, pageable);
+
+        Map<String, Object> result = new HashMap<>();
+
+        if (list != null && !list.isEmpty()) {
+            result.put("list", list);
+            result.put("paging", paging);
+            result.put("action", action);
+            result.put("keyword", keyword);
+            return ResponseEntity.ok(result);
+        } else {
+            result.put("error", "검색 결과가 없습니다.");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(result);
+        }
+    }
+
+    // FAQ 내용 검색 목록보기 요청 처리용 (페이징 처리 : 한 페이지에 10개씩 출력 처리)
+    @GetMapping("/faq/search/content")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> faqSearchContentMethod(
+            @RequestParam("action") String action,
+            @RequestParam("keyword") String keyword,
+            @RequestParam(name = "page", required = false, defaultValue = "1") int page,
+            @RequestParam(name = "limit", required = false, defaultValue = "10") int limit) {
+        log.info("/faq/search/content : " + keyword);
+        int listCount = FaqService.selectSearchContentCount(keyword);
+
+        Paging paging = new Paging(listCount, limit, page, "/faq/search/content");
+        paging.calculate();
+
+        Pageable pageable = PageRequest.of(page - 1, limit, Sort.Direction.DESC, "faqNo");
+        ArrayList<Faq> list = FaqService.selectSearchContent(keyword, pageable);
+
+        Map<String, Object> result = new HashMap<>();
+
+        if (list != null && !list.isEmpty()) {
+            result.put("list", list);
+            result.put("paging", paging);
+            result.put("action", action);
+            result.put("keyword", keyword);
+            return ResponseEntity.ok(result);
+        } else {
+            result.put("error", "검색 결과가 없습니다.");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(result);
+        }
+    }
+
+    // FAQ 등록날짜 검색 목록보기 요청 처리용 (페이징 처리 : 한 페이지에 10개씩 출력 처리)
+    @GetMapping("/faq/search/date")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> faqSearchDateMethod(
+            Search search,
+            @RequestParam("action") String action,
+            @RequestParam(name = "page", required = false, defaultValue = "1") int page,
+            @RequestParam(name = "limit", required = false, defaultValue = "10") int limit) {
+        log.info("/faq/search/date : " + search.getBegin() + "-" + search.getEnd());
+
+        int listCount = FaqService.selectSearchDateCount(search.getBegin().toLocalDate(), search.getEnd().toLocalDate());
+
+        Paging paging = new Paging(listCount, limit, page, "/faq/search/date");
+        paging.calculate();
+
+        Pageable pageable = PageRequest.of(page - 1, limit, Sort.Direction.DESC, "faqNo");
+        ArrayList<Faq> list = FaqService.selectSearchDate(search.getBegin().toLocalDate(), search.getEnd().toLocalDate(), pageable);
+
+        Map<String, Object> result = new HashMap<>();
+
+        if (list != null && !list.isEmpty()) {
+            result.put("list", list);
+            result.put("paging", paging);
+            result.put("action", action);
+            result.put("begin", search.getBegin());
+            result.put("end", search.getEnd());
+            return ResponseEntity.ok(result);
+        } else {
+            result.put("error", "검색 결과가 없습니다.");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(result);
+        }
+    }
+
+    // FAQ 답변상태 검색 목록보기 요청 처리용 (페이징 처리 : 한 페이지에 10개씩 출력 처리)
+    @GetMapping("/faq/search/status")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> faqSearchStatusMethod(
+            @RequestParam("action") String action,
+            @RequestParam("keyword") String keyword,
+            @RequestParam(name = "page", required = false, defaultValue = "1") int page,
+            @RequestParam(name = "limit", required = false, defaultValue = "10") int limit) {
+        log.info("/faq/search/status : " + keyword);
+        int listCount = FaqService.selectSearchStatusCount(keyword);
+
+        Paging paging = new Paging(listCount, limit, page, "/faq/search/status");
+        paging.calculate();
+
+        Pageable pageable = PageRequest.of(page - 1, limit, Sort.Direction.DESC, "faqNo");
+        ArrayList<Faq> list = FaqService.selectSearchStatus(keyword, pageable);
+
+        Map<String, Object> result = new HashMap<>();
+
+        if (list != null && !list.isEmpty()) {
+            result.put("list", list);
+            result.put("paging", paging);
+            result.put("action", action);
+            result.put("keyword", keyword);
+            return ResponseEntity.ok(result);
+        } else {
+            result.put("error", "검색 결과가 없습니다.");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(result);
+        }
+    }
+
 }
