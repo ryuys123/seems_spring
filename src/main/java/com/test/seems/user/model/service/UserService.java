@@ -1,5 +1,6 @@
 package com.test.seems.user.model.service;
 
+import com.test.seems.notice.model.dto.Notice;
 import com.test.seems.user.jpa.entity.UserEntity;
 import com.test.seems.user.jpa.repository.UserRepository;
 import com.test.seems.user.model.dto.User;
@@ -14,7 +15,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 @Slf4j
@@ -178,37 +181,73 @@ public class UserService {
         return users;
     }
 
-    public int selectSearchUserIdCount(String keyword) {
-        return (int)userRepository.countByUserId(keyword);
-    }
-
     public int selectSearchUserNameCount(String keyword) {
-        return (int)userRepository.countByUserNameContaining(keyword);
-    }
-
-    public int selectSearchCreatedAtCount(java.util.Date begin, java.util.Date end) {
-        return (int) userRepository.countByCreatedAtBetween(begin, end);
-    }
-
-    public int selectSearchStatusCount(int keyword) {
-        return (int)userRepository.countByStatus(keyword);
+		/* sql :
+		* 	select count(*) from notice
+			where title like '%' || #{ keyword } || '%'
+		* */
+        return userRepository.countByKeyword(keyword);
     }
 
 
-    public ArrayList<User> selectSearchUserId(String keyword, Pageable pageable) {
-        return toList(userRepository.findByUserIdEquals(keyword, pageable));
+    public int selectSearchStatusCount(int status) {
+		/* sql :
+		* 	select count(*) from notice
+			where noticecontent like '%' || #{ keyword } || '%'
+		* */
+        return userRepository.countByStatus(status);
     }
+
+
+    public int selectSearchCreatedAtCount(Date begin, Date end) {
+		/* sql :
+		* 	select count(*) from notice
+			where noticedate between #{ begin } and #{ end }
+		* */
+        return userRepository.countByCreatedAtBetween(begin, end);
+    }
+
 
     public ArrayList<User> selectSearchUserName(String keyword, Pageable pageable) {
-        return toList(userRepository.findByUserNameContaining(keyword, pageable));
+		/* sql :
+			select *
+			from (select rownum rnum, noticeno, title, noticedate, noticewriter, noticecontent,
+						original_filepath, rename_filepath, importance, imp_end_date, readcount
+				  from (select * from notice
+						where title like '%' || #{ keyword } || '%'
+						order by importance desc, noticedate desc, noticeno desc))
+			where rnum between #{ startRow } and #{ endRow }
+		* */
+        return toList(userRepository.findByKeyword(keyword, pageable));
     }
 
-    public ArrayList<User> selectSearchCreatedAt(java.util.Date begin, java.util.Date end, Pageable pageable) {
-        return toList(userRepository.findByCreatedAtBetween(begin, end, pageable));
+
+    public ArrayList<User> selectSearchStatus(int status, Pageable pageable) {
+		/* sql :
+		* 	select *
+			from (select rownum rnum, noticeno, title, noticedate, noticewriter, noticecontent,
+						original_filepath, rename_filepath, importance, imp_end_date, readcount
+				  from (select * from notice
+						where noticecontent like '%' || #{ keyword } || '%'
+						order by importance desc, noticedate desc, noticeno desc))
+			where rnum between #{ startRow } and #{ endRow }
+		* */
+        return toList(userRepository.findByStatusEquals(status, pageable));
     }
 
-    public ArrayList<User> selectSearchStatus(int keyword, Pageable pageable) {
-        return toList(userRepository.findByStatus(keyword, pageable));
+
+    public ArrayList<User> selectSearchCreatedAt(Date begin, Date end, Pageable pageable) {
+		/* sql :
+		* 	select *
+			from (select rownum rnum, noticeno, title, noticedate, noticewriter, noticecontent,
+						original_filepath, rename_filepath, importance, imp_end_date, readcount
+				  from (select * from notice
+						where noticedate between #{ begin } and #{ end }
+						order by importance desc, noticedate desc, noticeno desc))
+			where rnum between #{ startRow } and #{ endRow }
+		* */
+        return toList(userRepository.findByCreatedAtBetween(
+                begin, end, pageable));
     }
 
     // BCrypt 해싱 형태 확인 메서드

@@ -444,95 +444,116 @@ public class UserController {
     }
 
     //회원 로그인 제한/허용 처리용 메소드
-    @PostMapping("admin/ustatus")
-    public String changeStatusMethod(User user, Model model) {
-        if(userService.updateStatus(user) > 0) {
-            return "redirect:ulist.do";
-        }else {
-            model.addAttribute("message", "로그인 제한/허용 처리 오류 발생");
-            return "common/error";
+    @PostMapping("/admin/ustatus")
+    public ResponseEntity<?> changeStatusMethod(@RequestBody User user) {
+        try {
+            log.info(">>> 상태 변경 요청: userId={}, status={}", user.getUserId(), user.getStatus());
+
+            if (userService.updateStatus(user) > 0) {
+                return ResponseEntity.ok().body("상태 변경 완료");
+            } else {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("상태 변경 실패");
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("서버 오류 발생");
         }
     }
 
     //관리자용 검색 기능 요청 처리용 메소드 (만약, 전송방식을 GET, POST 둘 다 사용할 수 있게 한다면)
-    @RequestMapping(value="usearch.do", method= {RequestMethod.POST, RequestMethod.GET})
-    public ModelAndView userSearchMethod(HttpServletRequest request, ModelAndView mv) {
-        //전송 온 값 꺼내기
-        String action = request.getParameter("action");
-        String keyword = request.getParameter("keyword");
-        String begin = request.getParameter("begin");
-        String end = request.getParameter("end");
+    // 사용자 이름, 아이디 검색 목록보기 요청 처리용 (페이징 처리 : 한 페이지에 10개씩 출력 처리)
+    @GetMapping("/admin/search/name")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> searchUserByName(
+            @RequestParam("action") String action,
+            @RequestParam("keyword") String keyword,
+            @RequestParam(name = "page", required = false, defaultValue = "1") int page,
+            @RequestParam(name = "limit", required = false, defaultValue = "10") int limit) {
+        log.info("/admin/search/name : " + keyword);
+        int listCount = userService.selectSearchUserNameCount(keyword);
 
-        Search search = new Search();
-
-        if(action.equals("ucreatedat")) {
-            if(begin != null && end != null) {
-                search.setBegin(Date.valueOf(begin));
-                search.setEnd(Date.valueOf(end));
-            }
-        } else if(keyword != null) {
-            if(action.equals("ustatus")) {
-                search.setAge(Integer.parseInt(keyword));
-            }else {
-                search.setKeyword(keyword);
-            }
-        }
-
-        //검색 결과에 대한 페이징 처리
-        int currentPage = 1;
-        if(request.getParameter("page") != null) {
-            currentPage = Integer.parseInt(request.getParameter("page"));
-        }
-
-        //한 페이지에 출력할 목록 갯수 지정
-        int limit = 10;
-        if(request.getParameter("limit") != null) {
-            limit = Integer.parseInt(request.getParameter("limit"));
-        }
-
-        //총 페이지수 계산을 위해 검색 결과가 적용된 총 목록 갯수 조회
-        int listCount = 0;
-        switch(action) {
-            case "uid":	listCount = userService.selectSearchUserIdCount(keyword);		break;
-            case "uname":	listCount = userService.selectSearchUserNameCount(keyword);		break;
-            case "ucreatedat":	listCount = userService.selectSearchCreatedAtCount(search.getBegin(), search.getEnd());	break;
-            case "ustatus":	listCount = userService.selectSearchStatusCount(Integer.parseInt(keyword));	break;
-        }
-
-        //페이징 계산 처리
-        Paging paging = new Paging(listCount, limit, currentPage, "msearch.do");
+        Paging paging = new Paging(listCount, limit, page, "/admin/search/name");
         paging.calculate();
 
-        Pageable pageable = PageRequest.of(currentPage - 1, limit, Sort.Direction.DESC, "enrollDate");
+        Pageable pageable = PageRequest.of(page - 1, limit, Sort.Direction.DESC, "userId");
+        ArrayList<User> list = userService.selectSearchUserName(keyword, pageable);
 
-        ArrayList<User> list = null;
-        switch(action) {
-            case "uid":	list = userService.selectSearchUserId(keyword, pageable);		break;
-            case "uname":	list = userService.selectSearchUserName(keyword, pageable);		break;
-            case "ucreatedat":	list = userService.selectSearchCreatedAt(search.getBegin(), search.getEnd(), pageable);	break;
-            case "ustatus":	list = userService.selectSearchStatus(Integer.parseInt(keyword), pageable);	break;
+        Map<String, Object> result = new HashMap<>();
+
+        if (list != null && !list.isEmpty()) {
+            result.put("list", list);
+            result.put("paging", paging);
+            result.put("action", action);
+            result.put("keyword", keyword);
+            return ResponseEntity.ok(result);
+        } else {
+            result.put("error", "검색 결과가 없습니다.");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(result);
         }
+    }
 
-        //조회 결과 성공 또는 실패에 따라 뷰페이지 내보내기
-        if(list != null && list.size() > 0) {
-            mv.addObject("list", list);
-            mv.addObject("paging", paging);
-            mv.addObject("action", action);
+    // 사용자 상태 검색 목록보기 요청 처리용 (페이징 처리 : 한 페이지에 10개씩 출력 처리)
+    @GetMapping("/admin/search/status")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> userSearchStatusMethod(
+            @RequestParam("action") String action,
+            @RequestParam("status") int status,
+            @RequestParam(name = "page", required = false, defaultValue = "1") int page,
+            @RequestParam(name = "limit", required = false, defaultValue = "10") int limit) {
+        log.info("/admin/search/status : " + status);
+        int listCount = userService.selectSearchStatusCount(status);
 
-            if(keyword != null) {
-                mv.addObject("keyword", keyword);
-            }else {
-                mv.addObject("begin", begin);
-                mv.addObject("end", end);
-            }
+        Paging paging = new Paging(listCount, limit, page, "/admin/search/status");
+        paging.calculate();
 
-            mv.setViewName("user/userListView");
-        }else {
-            mv.addObject("message", "회원 관리 검색 결과가 존재하지 않습니다.");
-            mv.setViewName("common/error");
+        Pageable pageable = PageRequest.of(page - 1, limit, Sort.Direction.DESC, "userId");
+        ArrayList<User> list = userService.selectSearchStatus(status, pageable);
+
+        Map<String, Object> result = new HashMap<>();
+
+        if (list != null && !list.isEmpty()) {
+            result.put("list", list);
+            result.put("paging", paging);
+            result.put("action", action);
+            result.put("status", status);
+            return ResponseEntity.ok(result);
+        } else {
+            result.put("error", "검색 결과가 없습니다.");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(result);
         }
+    }
 
-        return mv;
+    // 사용자 가입날짜 검색 목록보기 요청 처리용 (페이징 처리 : 한 페이지에 10개씩 출력 처리)
+    @GetMapping("/admin/search/createdAt")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> userSearchDateMethod(
+            Search search,
+            @RequestParam("action") String action,
+            @RequestParam(name = "page", required = false, defaultValue = "1") int page,
+            @RequestParam(name = "limit", required = false, defaultValue = "10") int limit) {
+        log.info("/admin/search/date : " + search.getBegin() + "-" + search.getEnd());
+        Date begin = java.sql.Date.valueOf(search.getBegin().toLocalDate());
+        Date end = java.sql.Date.valueOf(search.getEnd().toLocalDate());
+        int listCount = userService.selectSearchCreatedAtCount(begin, end);
+
+        Paging paging = new Paging(listCount, limit, page, "/admin/search/date");
+        paging.calculate();
+
+        Pageable pageable = PageRequest.of(page - 1, limit, Sort.Direction.DESC, "userId");
+        ArrayList<User> list = userService.selectSearchCreatedAt(begin, end, pageable);
+
+        Map<String, Object> result = new HashMap<>();
+
+        if (list != null && !list.isEmpty()) {
+            result.put("list", list);
+            result.put("paging", paging);
+            result.put("action", action);
+            result.put("begin", search.getBegin());
+            result.put("end", search.getEnd());
+            return ResponseEntity.ok(result);
+        } else {
+            result.put("error", "검색 결과가 없습니다.");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(result);
+        }
     }
 
 
