@@ -14,4 +14,7 @@ public interface SimulationSettingRepository extends JpaRepository<SimulationSet
 
     // 특정 상태의 세션 목록 조회
     List<SimulationSettingEntity> findByStatus(String status);
+    // ✅ 'cannot find symbol' 오류 해결을 위해 이 메소드 선언을 추가해야 합니다.
+    Optional<SimulationSettingEntity> findTopByUserIdAndStatusOrderByCreatedAtDesc(String userId, String status);
+    Optional<SimulationSettingEntity> findByUserIdAndStatus(String userId, String status);
 }

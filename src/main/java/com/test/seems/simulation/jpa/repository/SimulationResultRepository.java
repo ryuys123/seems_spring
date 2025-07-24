@@ -8,6 +8,8 @@ import java.util.Optional;
 
 @Repository
 public interface SimulationResultRepository extends JpaRepository<SimulationResultEntity, Long> {
-    // 특정 세션 ID에 대한 시뮬레이션 결과 조회
-    Optional<SimulationResultEntity> findBySettingId(Long settingId);
+    // ✅ 새로운 메서드 추가:
+    // resultType이 'TEMPLATE'이고, personalityType이 일치하는 템플릿 정보를 찾습니다.
+    Optional<SimulationResultEntity> findByResultTypeAndPersonalityType(String resultType, String personalityType);
+
 }

@@ -1,14 +1,18 @@
-// src/main/java/com/test/seems/test/model/service/PersonalityService.java
 package com.test.seems.test.model.service;
 
+import com.test.seems.test.jpa.entity.PersonalityEntity;
 import com.test.seems.test.jpa.entity.PersonalityTestResultEntity;
 import com.test.seems.test.jpa.entity.TestQuestionEntity;
 import com.test.seems.test.jpa.repository.CommonQuestionRepository;
 import com.test.seems.test.jpa.repository.PersonalityAnswerRepository;
 import com.test.seems.test.jpa.repository.PersonalityResultRepository;
-import com.test.seems.test.model.dto.PersonalityAnswerRequest;
+import com.test.seems.test.model.dto.PersonalityAnswerDto;
+import com.test.seems.test.model.dto.PersonalitySubmissionDto;
 import com.test.seems.test.model.dto.PersonalityTestResult;
 import com.test.seems.test.model.dto.TestQuestion;
+import com.test.seems.user.exception.UserNotFoundException;
+import com.test.seems.user.jpa.entity.UserEntity;
+import com.test.seems.user.jpa.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,19 +25,16 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-/**
- * 성격 검사와 관련된 비즈니스 로직을 처리하는 서비스 클래스입니다.
- */
 @Slf4j
 @Service
-@RequiredArgsConstructor // final 필드들을 주입받는 생성자를 자동으로 생성
+@RequiredArgsConstructor
 public class PersonalityService {
 
-    private final CommonQuestionRepository commonQuestionRepository; // ⭐ CommonQuestionRepository 주입
+    private final CommonQuestionRepository commonQuestionRepository;
     private final PersonalityAnswerRepository personalityAnswerRepository;
     private final PersonalityResultRepository personalityResultRepository;
+    private final UserRepository userRepository;
 
-    // --- MBTI 유형별 칭호 및 설명 목록 (변동 없음) ---
     private static final Map<String, String> mbtiTitles = new HashMap<>();
     static {
         mbtiTitles.put("INTJ", "모든 것을 꿰뚫어 보는, 통찰의 설계자");
@@ -76,81 +77,78 @@ public class PersonalityService {
 
     @Transactional(readOnly = true)
     public List<TestQuestion> getPersonalityQuestions() {
-        // commonQuestionRepository를 사용하여 'PERSONALITY' 타입의 질문을 가져옵니다.
         return commonQuestionRepository.findByTestType("PERSONALITY").stream()
                 .map(TestQuestionEntity::toDto)
                 .collect(Collectors.toList());
     }
 
     @Transactional
-    public PersonalityTestResult submitAnswersAndCalculateResult(List<PersonalityAnswerRequest> userAnswers) { // PersonalityAnswerRequest 사용
-        String userId = userAnswers.get(0).getUserId();
-        Long testId = userAnswers.get(0).getPersonalityTestId(); // PersonalityAnswerRequest에서 personalityTestId 가져옴
+    public PersonalityTestResult submitPersonalityTest(PersonalitySubmissionDto submissionDto) {
+        UserEntity user = userRepository.findById(submissionDto.getUserId())
+                .orElseThrow(() -> new UserNotFoundException("User not found with id: " + submissionDto.getUserId()));
 
-        // 1. 답변 저장 (TB_PERSONALITY_ANSWERS에 저장)
-        for (PersonalityAnswerRequest answer : userAnswers) {
-            // PersonalityAnswerRequest의 toEntity() 메서드를 사용하거나, 직접 엔티티 빌드
-            personalityAnswerRepository.save(
-                    com.test.seems.test.jpa.entity.PersonalityEntity.builder() // 엔티티 패키지명 포함
-                            .userId(answer.getUserId())
-                            .questionId(answer.getQuestionId())
-                            .answerValue(answer.getAnswerValue()) // PersonalityEntity의 answerValue가 String이라면 그대로 사용
-                            .build()
-            );
+        // 1. Save answers
+        for (PersonalityAnswerDto answerDto : submissionDto.getAnswers()) {
+            PersonalityEntity answerEntity = new PersonalityEntity();
+            answerEntity.setUserId(user.getUserId());
+            answerEntity.setQuestionId(answerDto.getQuestionId());
+            answerEntity.setAnswerValue(String.valueOf(answerDto.getAnswerValue()));
+            personalityAnswerRepository.save(answerEntity);
         }
 
-        List<Long> questionIds = userAnswers.stream().map(PersonalityAnswerRequest::getQuestionId).collect(Collectors.toList());
-        Map<Long, TestQuestionEntity> questionMap = commonQuestionRepository.findAllById(questionIds)
-                .stream().collect(Collectors.toMap(TestQuestionEntity::getQuestionId, q -> q));
-
+        // 2. Calculate scores
         Map<String, Integer> scores = new HashMap<>();
         scores.put("E", 0); scores.put("I", 0);
         scores.put("S", 0); scores.put("N", 0);
         scores.put("T", 0); scores.put("F", 0);
         scores.put("J", 0); scores.put("P", 0);
 
-        for (PersonalityAnswerRequest answer : userAnswers) {
-            TestQuestionEntity question = questionMap.get(answer.getQuestionId());
-            if (question == null || question.getScoreDirection() == null) continue;
+        for (PersonalityAnswerDto answer : submissionDto.getAnswers()) {
+            log.info("Processing answer for questionId: {}, answerValue: {}, scoreDirection: {}", answer.getQuestionId(), answer.getAnswerValue(), answer.getScoreDirection());
+            // Assuming answerValue is 1-5 scale. 1,2 -> +1 for I,S,F,P. 4,5 -> +1 for E,N,T,J
+            int value = answer.getAnswerValue();
+            String direction = answer.getScoreDirection();
 
-            // ⭐ answer.getAnswerValue()가 String이므로 Integer.parseInt()로 변환 필요 ⭐
-            // 또는, 답변이 숫자가 아니라 'YES/NO' 등의 문자열이라면 점수 계산 로직을 변경해야 합니다.
-            // 여기서는 1~5점 척도 답변이라고 가정하고 숫자로 변환합니다.
-            int answerIntValue;
-            try {
-                answerIntValue = Integer.parseInt(answer.getAnswerValue());
-            } catch (NumberFormatException e) {
-                log.error("MBTI 답변 값 파싱 오류: {}는 유효한 숫자가 아닙니다. userId: {}", answer.getAnswerValue(), userId);
-                continue; // 유효하지 않은 답변은 건너뜀
+            if (direction == null || direction.isEmpty()) {
+                log.warn("scoreDirection is null or empty for questionId: {}", answer.getQuestionId());
+                continue; // Skip this answer or handle as an error
             }
 
-            int pointToAdd = answerIntValue - 3; // MBTI 계산 방식에 따라 점수 조정 (예: 1점: -2, 2점: -1, 3점: 0, 4점: 1, 5점: 2)
-            String direction = question.getScoreDirection();
-            scores.put(direction, scores.get(direction) + pointToAdd);
+            if (value < 3) { // Leans towards I, S, F, P
+                String oppositeDirection = getOppositeDirection(direction);
+                if (scores.containsKey(oppositeDirection)) {
+                    scores.put(oppositeDirection, scores.get(oppositeDirection) + (3 - value));
+                } else {
+                    log.warn("Opposite direction {} not found in scores map for direction {}", oppositeDirection, direction);
+                }
+            } else if (value > 3) { // Leans towards E, N, T, J
+                if (scores.containsKey(direction)) {
+                    scores.put(direction, scores.get(direction) + (value - 3));
+                } else {
+                    log.warn("Direction {} not found in scores map", direction);
+                }
+            }
         }
+        log.info("Calculated scores: {}", scores);
 
+        // 3. Determine MBTI type
         String mbtiType = "";
         mbtiType += (scores.get("E") >= scores.get("I")) ? "E" : "I";
         mbtiType += (scores.get("S") >= scores.get("N")) ? "S" : "N";
         mbtiType += (scores.get("T") >= scores.get("F")) ? "T" : "F";
         mbtiType += (scores.get("J") >= scores.get("P")) ? "J" : "P";
 
-        String description = mbtiDescriptions.getOrDefault(mbtiType, "해당 유형에 대한 설명을 준비 중입니다.");
-        String mbtiTitle = mbtiTitles.get(mbtiType);
+        // 4. Save result
+        PersonalityTestResultEntity resultEntity = new PersonalityTestResultEntity();
+        resultEntity.setUserId(user.getUserId());
+        resultEntity.setPersonalityTestId(1L); // Assuming 1L is the ID for MBTI test
+        resultEntity.setResult(mbtiType);
+        resultEntity.setDescription(mbtiDescriptions.get(mbtiType));
+        resultEntity.setMbtiTitle(mbtiTitles.get(mbtiType));
+        resultEntity.setCreatedAt(LocalDateTime.now());
 
-        // 3. PersonalityTestResultEntity (TB_PERSONALITY_RESULTS)에 결과 저장
-        PersonalityTestResultEntity finalResultEntity = PersonalityTestResultEntity.builder()
-                .userId(userId)
-                .personalityTestId(testId)
-                .result(mbtiType)
-                .description(description)
-                .mbtiTitle(mbtiTitle)
-                .createdAt(LocalDateTime.now()) // @CreationTimestamp를 사용하면 필요 없을 수 있음. 엔티티에 따라 조정.
-                .build();
+        PersonalityTestResultEntity savedResult = personalityResultRepository.save(resultEntity);
 
-        PersonalityTestResultEntity savedResult = personalityResultRepository.save(finalResultEntity);
-
-        // 4. PersonalityTestResult DTO로 변환하여 반환
         return new PersonalityTestResult(
                 savedResult.getResult(),
                 savedResult.getDescription(),
@@ -159,9 +157,22 @@ public class PersonalityService {
         );
     }
 
+    private String getOppositeDirection(String direction) {
+        switch (direction) {
+            case "E": return "I";
+            case "I": return "E";
+            case "S": return "N";
+            case "N": return "S";
+            case "T": return "F";
+            case "F": return "T";
+            case "J": return "P";
+            case "P": return "J";
+            default: return "";
+        }
+    }
+
     @Transactional(readOnly = true)
     public Optional<PersonalityTestResult> getPersonalityTestResult(String userId) {
-        // personalityResultRepository를 사용하여 최신 성격 검사 결과 조회
         return personalityResultRepository
                 .findTopByUserIdOrderByCreatedAtDesc(userId)
                 .map(entity -> new PersonalityTestResult(
@@ -174,7 +185,6 @@ public class PersonalityService {
 
     @Transactional(readOnly = true)
     public List<PersonalityTestResult> getTestHistoryByUserId(String userId) {
-        // personalityResultRepository를 사용하여 특정 사용자의 모든 성격 검사 기록 조회
         return personalityResultRepository
                 .findAllByUserIdOrderByCreatedAtDesc(userId)
                 .stream()

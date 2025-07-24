@@ -1,5 +1,6 @@
 package com.test.seems.simulation.model.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.test.seems.simulation.model.dto.SimulationQuestion;
 import lombok.RequiredArgsConstructor;
@@ -7,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
@@ -18,25 +20,20 @@ import java.util.Map;
 @Slf4j
 public class AiGenerationService {
 
-    // application.properties에서 파이썬 AI 서버 URL을 불러옵니다.
     @Value("${python.ai.server.url}")
     private String aiServerUrl;
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    /**
-     * AI 서버에 시뮬레이션 질문 생성을 요청합니다.
-     * Python의 /generate_simulation 엔드포인트를 호출합니다.
-     */
-    public Map<String, Object> generateSimulationContent(String scenarioName, String previousContext) {
-
+    public Map<String, Object> generateSimulationContent(String scenarioName, String targetName, String situationDesc) {
         String url = aiServerUrl + "/generate_simulation";
+        log.info("AI 시나리오 생성 요청. URL: {}", url);
 
-        // AI 서버로 보낼 요청 데이터
         Map<String, String> requestBody = new HashMap<>();
         requestBody.put("scenarioName", scenarioName);
-        requestBody.put("previousContext", previousContext);
+        requestBody.put("targetName", targetName);
+        requestBody.put("situationDesc", situationDesc);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -44,59 +41,65 @@ public class AiGenerationService {
         HttpEntity<Map<String, String>> entity = new HttpEntity<>(requestBody, headers);
 
         try {
-            // AI 서버 호출
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
-
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                // 파이썬 서버가 반환한 JSON 문자열을 Map으로 변환
-                Map<String, Object> result = objectMapper.readValue(response.getBody(), Map.class);
-                return result;
+// 응답 본문을 문자열로 먼저 저장합니다.
+            String responseBody = response.getBody();
+            // ✨✨ 핵심 디버깅 코드 ✨✨
+            // 파싱하기 전에 AI 서버가 보낸 원본 응답을 그대로 로그에 남깁니다.
+            log.info("AI 서버로부터 받은 원본 응답 문자열: {}", responseBody);
+            // 성공했지만 응답 본문이 없는 경우에 대한 방어 코드
+            if (response.getBody() == null) {
+                log.warn("AI 서버로부터 2xx 성공 응답을 받았으나 응답 본문이 비어있습니다.");
+                throw new RuntimeException("AI 서버로부터 비어있는 응답을 받았습니다.");
             }
+
+            return objectMapper.readValue(response.getBody(), Map.class);
+
+        } catch (RestClientResponseException e) {
+            // ✨ 핵심 변경점 1: AI 서버가 4xx, 5xx 에러를 보냈을 때 잡는 블록
+            log.error("AI 서버가 오류를 응답했습니다. Status: {}, Response Body: {}",
+                    e.getStatusCode(), e.getResponseBodyAsString(), e);
+            // 원본 예외를 포함하여 던져야 추적이 용이합니다.
+            throw new RuntimeException("AI 서버 통신 중 오류가 발생했습니다.", e);
+
+        } catch (JsonProcessingException e) {
+            // ✨ 핵심 변경점 2: JSON 파싱 오류를 잡는 블록
+            log.error("AI 서버의 응답을 파싱하는 데 실패했습니다.", e);
+            throw new RuntimeException("AI 서버 응답 파싱에 실패했습니다.", e);
+
         } catch (Exception e) {
-            log.error("AI 시나리오 생성 요청 실패: {}", e.getMessage());
+            // ✨ 핵심 변경점 3: 그 외 네트워크 오류 등을 잡는 블록
+            log.error("AI 시나리오 생성 요청 중 예측하지 못한 오류가 발생했습니다.", e);
+            throw new RuntimeException("AI 서버 요청 중 알 수 없는 오류가 발생했습니다.", e);
         }
-        return null;
     }
 
-    /**
-     * AI 서버에 성향 분석을 요청합니다.
-     * Python의 /analyze_traits 엔드포인트를 호출합니다.
-     */
-    public Map<String, Object> analyzeUserTraits(List<Map<String, Object>> choices) {
-
+    public Map<String, Object> analyzeUserTraits(List<String> selectedTraits) {
         String url = aiServerUrl + "/analyze_traits";
 
-        // AI 서버로 보낼 요청 데이터 (사용자의 선택 기록)
-        Map<String, List<Map<String, Object>>> requestBody = new HashMap<>();
-        requestBody.put("choices", choices);
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("selectedTraits", selectedTraits);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        HttpEntity<Map<String, List<Map<String, Object>>>> entity = new HttpEntity<>(requestBody, headers);
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
         try {
-            // AI 서버 호출
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
-
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                // 파이썬 서버가 반환한 분석 결과 JSON을 Map으로 변환
-                Map<String, Object> result = objectMapper.readValue(response.getBody(), Map.class);
-                return result;
+                return objectMapper.readValue(response.getBody(), Map.class);
             }
         } catch (Exception e) {
             log.error("AI 성향 분석 요청 실패: {}", e.getMessage());
         }
         return null;
-
     }
-    // Map을 SimulationQuestion.Option으로 변환하는 정적 헬퍼 메서드
-    public static SimulationQuestion.Option mapToOption(Map<String, Object> optionMap) {
-        return SimulationQuestion.Option.builder()
+
+    public static SimulationQuestion.ChoiceOption  mapToOption(Map<String, Object> optionMap) {
+        return SimulationQuestion.ChoiceOption.builder()
                 .text((String) optionMap.get("text"))
-                .trait((String) optionMap.get("trait"))
-                .nextNarrative((String) optionMap.get("nextNarrative"))
+                .nextQuestionNumber((Integer) optionMap.get("nextQuestionNumber"))
                 .build();
     }
-
 }

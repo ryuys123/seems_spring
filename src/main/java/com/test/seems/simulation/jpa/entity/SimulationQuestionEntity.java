@@ -37,6 +37,10 @@ public class SimulationQuestionEntity {
     @Column(name = "CHOICE_OPTIONS", nullable = false, length = 2000)
     private String choiceOptions;
 
+    // ✅ 추가된 컬럼: SETTING_ID
+    @Column(name = "SETTING_ID", nullable = false)
+    private Long settingId;
+
     // 엔티티를 DTO로 변환하는 메서드 (Builder 사용)
     // DTO 클래스 (SimulationQuestionDTO) 정의 후 구현 가능
     // public SimulationQuestionDTO toDto() {

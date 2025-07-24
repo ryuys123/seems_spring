@@ -41,7 +41,7 @@ dependencies {
 	//스프링 부트 웹 관련 기본 설정과 의존성 기능 제공, Restful 관련 어노테이션 제공
 
 	// 인증번호 sms 발송 관련 제공
-	implementation 'com.squareup.okhttp3:okhttp:4.10.0'
+	implementation 'net.nurigo:sdk:4.3.0'
 
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	//스프링 부트와 연동되는 jpa 기술 관련 의존성 기능 제공
@@ -94,6 +94,7 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.security:spring-security-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
 }
 
 // sourceSets

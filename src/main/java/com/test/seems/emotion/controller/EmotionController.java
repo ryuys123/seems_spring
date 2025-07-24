@@ -13,6 +13,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
+@CrossOrigin(origins = "http://localhost:3000")
 public class EmotionController {
 
     @Autowired
@@ -48,5 +49,15 @@ public class EmotionController {
     public ResponseEntity<List<EmotionLog>> getUserEmotionLogs(@PathVariable String userId) {
         List<EmotionLog> emotionLogs = emotionService.getUserEmotionLogs(userId);
         return ResponseEntity.ok(emotionLogs);
+    }
+
+    @GetMapping("/emotion-logs/{userId}/today")
+    public ResponseEntity<EmotionLog> getTodayEmotionLog(@PathVariable String userId) {
+        EmotionLog todayLog = emotionService.getTodayLatestEmotionLog(userId);
+        if (todayLog != null) {
+            return ResponseEntity.ok(todayLog);
+        } else {
+            return ResponseEntity.noContent().build();
+        }
     }
 }

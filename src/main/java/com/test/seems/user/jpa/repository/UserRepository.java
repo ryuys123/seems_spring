@@ -20,8 +20,9 @@ public interface UserRepository extends JpaRepository<UserEntity, String>, UserR
     // 추가된 메소드를 가진 MemberRepositoryCustom 메소드도 사용 가능함
     // MemberRepositoryCustomImpl 이 오버라이딩한 코드도 동적 바인딩되므로 사용가능함
     UserEntity findByUserId(String userId); // userId로 사용자 조회
-
-    @Modifying
+    UserEntity findByUserNameAndPhone(String userName, String phone);
+  
+      @Modifying
     @Transactional
     @Query("UPDATE UserEntity u SET u.status = :status WHERE u.userId = :userId")
     int modifyUserStatus(@Param("userId") String userId, @Param("status") int status);
@@ -35,8 +36,6 @@ public interface UserRepository extends JpaRepository<UserEntity, String>, UserR
     List<UserEntity> findByKeyword(@Param("keyword") String keyword, Pageable pageable);
     List<UserEntity> findByStatusEquals(int status, Pageable pageable);
     List<UserEntity> findByCreatedAtBetween(Date start, Date end, Pageable pageable);
-
-
 }
 
 
