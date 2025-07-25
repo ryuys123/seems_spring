@@ -325,7 +325,7 @@ public class FaceLoginService {
                     .faceIdHash("temp_hash_" + request.getUserId() + "_" + System.currentTimeMillis())
                     .faceImagePath("/faces/" + request.getUserId() + "_front.jpg")
                     .faceName("front")
-                    .isActive(deepfaceSuccess)
+                    .isActive(deepfaceSuccess ? 1 : 0)
                     .createdBy(request.getUserId())
                     .build();
             FaceLoginEntity savedFaceLogin = faceLoginRepository.save(faceLoginEntity);
