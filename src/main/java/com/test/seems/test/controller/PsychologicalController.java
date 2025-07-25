@@ -36,6 +36,21 @@ public class PsychologicalController {
         }
     }
 
+    /**
+     * ✨ 특정 카테고리에 해당하는 모든 문항을 조회합니다. (우울증/스트레스 척도 검사용)
+     */
+    @GetMapping("/questions/by-category")
+    public ResponseEntity<List<TestQuestion>> getQuestionsByCategory(@RequestParam String category) {
+        log.info("GET /questions/by-category?category={} 호출됨.", category);
+        List<TestQuestion> questions = psychologyService.getQuestionsByTestTypeAndCategory(category);
+        if (questions != null && !questions.isEmpty()) {
+            return ResponseEntity.ok(questions);
+        } else {
+            log.warn("카테고리 '{}'에 해당하는 문항을 찾을 수 없습니다.", category);
+            return ResponseEntity.notFound().build();
+        }
+    }
+
     @PostMapping("/scale")
     public ResponseEntity<PsychologicalScaleResult> submitScaleTest(@RequestBody ScaleTestSubmissionDto submissionDto) {
         try {
@@ -47,6 +62,7 @@ public class PsychologicalController {
             return ResponseEntity.internalServerError().build();
         }
     }
+
 
     @PostMapping("/submit-answer")
     public ResponseEntity<PsychologicalTestResultResponse> submitPsychologicalAnswer(
