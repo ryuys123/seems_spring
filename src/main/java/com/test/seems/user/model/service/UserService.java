@@ -31,6 +31,12 @@ public class UserService {
     @Autowired
     private BCryptPasswordEncoder bcryptPasswordEncoder;
 
+    public User findByUserId(String userId) {
+        return userRepository.findById(userId)
+                .map(UserEntity::toDto)
+                .orElse(null);
+    }
+
     public boolean selectCheckId(String userId) {
         //기존 가입회원과 아이디 중복 검사용
         //jpa 제공 메소드 사용
