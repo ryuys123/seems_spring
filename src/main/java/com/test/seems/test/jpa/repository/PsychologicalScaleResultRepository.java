@@ -7,4 +7,5 @@ import java.util.Optional;
 public interface PsychologicalScaleResultRepository extends JpaRepository<PsychologicalScaleResult, Long> {
     Optional<PsychologicalScaleResult> findTopByUser_UserIdAndTestCategoryOrderByCreatedAtDesc(String userId, String testCategory);
     Optional<PsychologicalScaleResult> findTopByUser_UserIdOrderByCreatedAtDesc(String userId);
+    boolean existsByUser_UserIdAndTestCategory(String userId, String testCategory);
 }

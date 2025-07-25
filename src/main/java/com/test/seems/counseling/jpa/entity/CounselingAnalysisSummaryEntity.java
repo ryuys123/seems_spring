@@ -1,6 +1,7 @@
 package com.test.seems.counseling.jpa.entity;
 
 import com.test.seems.user.jpa.entity.UserEntity; // UserEntity 경로 확인 필요
+import com.test.seems.guidance.jpa.entity.GuidanceTypeEntity; // 추가
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -31,8 +32,9 @@ public class CounselingAnalysisSummaryEntity {
     @Column(name = "SUMMARY_TYPE", nullable = false, length = 20)
     private String summaryType; // TEXT, VOICE
 
-    @Column(name = "GUIDANCE_TYPE_ID", nullable = false)
-    private Long guidanceTypeId; // FK to TB_GUIDANCE_TYPES
+    @ManyToOne(fetch = FetchType.LAZY) // 추가
+    @JoinColumn(name = "GUIDANCE_TYPE_ID", nullable = false) // 추가
+    private GuidanceTypeEntity guidanceType; // FK to TB_GUIDANCE_TYPES (변경)
 
     @Column(name = "SUMMARY_CONTENT", nullable = false, length = 2000)
     private String summaryContent;
@@ -42,10 +44,10 @@ public class CounselingAnalysisSummaryEntity {
     private Date createdAt;
 
     @Builder
-    public CounselingAnalysisSummaryEntity(CounselingSessionEntity session, String summaryType, Long guidanceTypeId, String summaryContent) {
+    public CounselingAnalysisSummaryEntity(CounselingSessionEntity session, String summaryType, GuidanceTypeEntity guidanceType, String summaryContent) { // 변경
         this.session = session;
         this.summaryType = summaryType;
-        this.guidanceTypeId = guidanceTypeId;
+        this.guidanceType = guidanceType; // 변경
         this.summaryContent = summaryContent;
     }
 }

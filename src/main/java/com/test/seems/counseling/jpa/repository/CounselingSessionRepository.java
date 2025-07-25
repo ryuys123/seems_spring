@@ -13,4 +13,5 @@ import java.util.Optional;
 public interface CounselingSessionRepository extends JpaRepository<CounselingSessionEntity, Long> {
     List<CounselingSessionEntity> findByUserOrderByCreatedAtDesc(UserEntity user);
     Optional<CounselingSessionEntity> findTopByUserOrderByCreatedAtDesc(UserEntity user);
+    boolean existsByUser_UserId(String userId);
 }

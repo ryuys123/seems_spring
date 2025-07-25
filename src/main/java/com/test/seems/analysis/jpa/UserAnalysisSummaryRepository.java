@@ -1,6 +1,6 @@
 package com.test.seems.analysis.jpa;
 
-import com.test.seems.analysis.model.UserAnalysisSummaryEntity;
+import com.test.seems.analysis.jpa.entity.UserAnalysisSummaryEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

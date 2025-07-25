@@ -14,7 +14,7 @@ public class PsychologicalScaleResult {
     private Long resultId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "USER_ID", nullable = false)
+    @JoinColumn(name = "USER_ID", nullable = false, referencedColumnName = "USER_ID")
     private UserEntity user;
 
     @Column(name = "TEST_CATEGORY", nullable = false)
