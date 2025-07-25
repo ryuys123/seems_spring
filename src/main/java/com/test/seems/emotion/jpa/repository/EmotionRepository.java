@@ -6,4 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface EmotionRepository extends JpaRepository<Emotion, Long> {
+    Emotion findByEmotionName(String emotionName);
 }
