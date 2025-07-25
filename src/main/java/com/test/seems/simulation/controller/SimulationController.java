@@ -1,17 +1,14 @@
 package com.test.seems.simulation.controller;
 
-import com.test.seems.simulation.model.dto.ProgressSimulationRequest;
-import com.test.seems.simulation.model.dto.Simulation;
-import com.test.seems.simulation.model.dto.SimulationQuestion;
-import com.test.seems.simulation.model.dto.SimulationResult;
-import com.test.seems.simulation.model.dto.StartSimulationRequest;
+import com.test.seems.simulation.model.dto.*;
 import com.test.seems.simulation.model.service.SimulationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List; // List 임포트 추가
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -25,6 +22,24 @@ import java.util.Optional;
 public class SimulationController {
 
     private final SimulationService simulationService;
+
+    // ✨ '극복 시뮬레이션 시작'을 위한 API
+    @PostMapping("/start/coping")
+    public ResponseEntity<SimulationQuestion> startCopingSimulation(@RequestBody Map<String, String> payload) {
+        String userId = payload.get("userId");
+        SimulationQuestion firstStep = simulationService.startCopingSimulation(userId);
+        return ResponseEntity.ok(firstStep);
+    }
+
+    // ✨ 2. '극복 시뮬레이션'의 다음 단계를 위한 API 추가
+    @PostMapping("/continue/coping")
+    public ResponseEntity<Map<String, Object>> continueCopingSimulation(@RequestBody Map<String, Object> payload) {
+        List<Map<String, Object>> history = (List<Map<String, Object>>) payload.get("history");
+        String choiceText = (String) payload.get("choiceText");
+
+        Map<String, Object> nextStep = simulationService.continueCopingSimulation(history, choiceText);
+        return ResponseEntity.ok(nextStep);
+    }
 
     /**
      * ✅ [수정됨] GET /api/simulation/list

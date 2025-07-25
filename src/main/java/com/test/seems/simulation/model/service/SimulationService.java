@@ -2,29 +2,35 @@ package com.test.seems.simulation.model.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.test.seems.analysis.jpa.entity.UserAnalysisSummaryEntity;
+import com.test.seems.analysis.jpa.repository.UserAnalysisSummaryRepository;
 import com.test.seems.simulation.jpa.entity.*;
 import com.test.seems.simulation.jpa.repository.*;
 import com.test.seems.simulation.model.dto.Simulation;
 import com.test.seems.simulation.model.dto.SimulationQuestion;
 import com.test.seems.simulation.model.dto.SimulationResult;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j; // 수정: lombok.extern.slf4j.Slf4j로 변경 (44j -> 4j)
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class SimulationService {
+
+    // ✨ 1. 새로운 의존성 추가
+    private final UserAnalysisSummaryRepository userAnalysisSummaryRepository;
+    private final AiGenerationService aiGenerationService;
 
     // --- 의존성 주입 (Repositories & ObjectMapper) ---
     private final ScenarioRepository scenarioRepository;
@@ -35,6 +41,107 @@ public class SimulationService {
     private final SimulationUserResultRepository userResultRepository; // 사용자 결과 저장용
     private final ObjectMapper objectMapper;
 
+    // ✨ 1. '극복 시뮬레이션'의 다음 단계를 위한 메서드 추가
+    public Map<String, Object> continueCopingSimulation(List<Map<String, Object>> history, String choiceText) {
+        // Python AI 서버에 보낼 프롬프트를 생성합니다.
+        String prompt = createContinuationPrompt(history, choiceText);
+
+        // AiGenerationService를 통해 AI에게 다음 단계를 생성하도록 요청합니다.
+        return aiGenerationService.generateCustomSimulationContinuation(prompt); // (AiGenerationService에 이 메서드 추가 필요)
+    }
+
+    // 다음 단계를 위한 프롬프트를 만드는 헬퍼 메서드
+    private String createContinuationPrompt(List<Map<String, Object>> history, String choiceText) {
+        // history와 choiceText를 문자열로 변환하여 프롬프트를 구성
+        return String.format(
+                "[역할 부여] 당신은 심리 시뮬레이션 AI입니다.\n" +
+                        "[지금까지의 대화 내용]\n%s\n" +
+                        "[사용자의 최근 선택]\n\"%s\"\n" +
+                        "[시뮬레이션 목표] 사용자의 선택에 적절히 반응하고, 원래 목표에 맞춰 다음 단계의 시나리오를 이어서 생성해주세요.\n" +
+                        "[JSON 출력 형식] (이전과 동일한 JSON 형식...)",
+                history.toString(), choiceText
+        );
+    }
+
+    // --- ✨ 2. '극복 시뮬레이션' 시작을 위한 새로운 메서드 추가 ---
+    @Transactional
+    public SimulationQuestion startCopingSimulation(String userId) {
+        log.info("Starting coping simulation for userId: {}", userId);
+
+        // 1. DB에서 사용자의 최신 종합 분석 결과를 조회합니다.
+        UserAnalysisSummaryEntity summary = userAnalysisSummaryRepository.findByUserId(userId)
+                .orElseThrow(() -> new RuntimeException("종합 분석 결과가 없는 사용자입니다: " + userId));
+
+        // 2. AiGenerationService를 통해 Python AI 서버에 맞춤형 시나리오 생성을 요청합니다.
+        Map<String, Object> aiGeneratedStep = aiGenerationService.generateCustomSimulation(summary);
+
+        // 3. AI가 생성한 시나리오를 위한 새로운 진행 정보(Setting)를 생성하고 저장합니다.
+        //    이때 scenarioId는 없으므로 null로 두거나, '맞춤형'을 의미하는 특별한 ID(예: -1L)를 사용할 수 있습니다.
+        SimulationSettingEntity setting = SimulationSettingEntity.builder()
+                .userId(userId)
+//                .scenarioId(-1L) // -1은 '맞춤형(AI 생성) 시나리오'를 의미한다고 가정
+                .status("IN_PROGRESS")
+                .createdAt(LocalDateTime.now())
+                .build();
+        setting = settingRepository.save(setting);
+        log.info("New COPING simulation setting created with ID: {}", setting.getSettingId());
+
+        // 4. AI 응답(Map)을 프론트엔드에 전달할 DTO(SimulationQuestion)로 변환합니다.
+        SimulationQuestion firstStepDto = mapAiResponseToDto(aiGeneratedStep);
+        firstStepDto.setSettingId(setting.getSettingId()); // 진행 ID를 DTO에 포함
+        firstStepDto.setIsSimulationEnded(false);
+
+        return firstStepDto;
+    }
+
+    // ✨ 3. AI가 생성한 Map 데이터를 SimulationQuestion DTO로 변환하는 헬퍼 메서드
+    private SimulationQuestion mapAiResponseToDto(Map<String, Object> aiResponse) {
+        List<Map<String, String>> optionsFromAi = (List<Map<String, String>>) aiResponse.get("options");
+
+        List<SimulationQuestion.ChoiceOption> options = optionsFromAi.stream()
+                .map(optMap -> SimulationQuestion.ChoiceOption.builder()
+                        .text(optMap.get("text"))
+                        // nextNarrative 등 다른 필드도 필요 시 추가
+                        .build())
+                .collect(Collectors.toList());
+
+        return SimulationQuestion.builder()
+                .questionText((String) aiResponse.get("narrative"))
+                .options(options)
+                .build();
+    }
+
+    // ✨ '극복 시뮬레이션'을 종료하고 최종 결과를 분석/저장하는 메서드
+    @Transactional
+    public SimulationResult analyzeAndSaveCopingResult(Long settingId, List<Map<String, Object>> history) {
+
+        // 1. Python AI 서버에 전체 대화 기록을 보내 최종 분석을 요청합니다.
+        // (AiGenerationService에 endCopingSimulation 메서드가 필요합니다)
+        Map<String, Object> finalAnalysis = aiGenerationService.endCopingSimulation(history);
+
+        String resultSummary = (String) finalAnalysis.get("resultSummary");
+        String personalityType = (String) finalAnalysis.get("personalityType"); // 예: '용감한 리더'
+        String resultTitle = (String) finalAnalysis.get("finalSuggestion"); // 최종 제안을 제목으로 활용
+
+        // 2. 받은 분석 결과를 SimulationUserResultEntity에 담아 DB에 저장합니다.
+        SimulationUserResultEntity userResultEntity = SimulationUserResultEntity.builder()
+                .settingId(settingId)
+                .personalityType(personalityType)
+                .resultTitle(resultTitle)
+                .resultSummary(resultSummary)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        SimulationUserResultEntity savedResult = userResultRepository.save(userResultEntity);
+
+        // 3. 상태를 'COMPLETED'로 변경합니다.
+        settingRepository.findById(settingId).ifPresent(setting -> {
+            setting.setStatus("COMPLETED");
+            settingRepository.save(setting);
+        });
+
+        return savedResult.toDto();
+    }
 
     /**
      * ✅ [새로운 메서드] 활성화된 모든 시뮬레이션 목록을 가져옵니다.
@@ -278,5 +385,16 @@ public class SimulationService {
             log.error("Error parsing choice options JSON for question ID {}: {}", entity.getQuestionId(), e.getMessage());
             throw new IllegalStateException("Failed to parse question options.", e);
         }
+    }
+
+    // ✨ '극복 시뮬레이션' 최종 분석 및 저장을 위한 API
+    @PostMapping("/end/coping")
+    public ResponseEntity<SimulationResult> endCopingSimulation(@RequestBody Map<String, Object> payload) {
+        Long settingId = ((Number) payload.get("settingId")).longValue();
+        List<Map<String, Object>> history = (List<Map<String, Object>>) payload.get("history");
+
+        // ✅ 올바른 코드 (메서드 이름으로 바로 호출)
+        SimulationResult finalResult = analyzeAndSaveCopingResult(settingId, history);
+        return ResponseEntity.ok(finalResult);
     }
 }

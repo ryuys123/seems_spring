@@ -2,30 +2,28 @@ package com.test.seems.analysis.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.test.seems.analysis.jpa.UserAnalysisSummaryRepository;
 import com.test.seems.analysis.jpa.entity.UserAnalysisSummaryEntity;
+import com.test.seems.analysis.jpa.repository.UserAnalysisSummaryRepository;
 import com.test.seems.analysis.model.UserAnalysisSummaryDto;
 import com.test.seems.analysis.model.UserTaskStatus;
 import com.test.seems.counseling.jpa.entity.CounselingAnalysisSummaryEntity;
 import com.test.seems.counseling.jpa.repository.CounselingAnalysisSummaryRepository;
+import com.test.seems.emotion.jpa.entity.Emotion;
+import com.test.seems.emotion.jpa.repository.EmotionRepository;
 import com.test.seems.test.jpa.entity.PersonalityTestResultEntity;
 import com.test.seems.test.jpa.entity.PsychologicalTestResultEntity;
 import com.test.seems.test.jpa.entity.ScaleAnalysisResultEntity;
 import com.test.seems.test.jpa.repository.PersonalityTestResultRepository;
 import com.test.seems.test.jpa.repository.PsychologicalTestResultRepository;
 import com.test.seems.test.jpa.repository.ScaleAnalysisResultRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
-
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import lombok.extern.slf4j.Slf4j;
+import com.test.seems.emotion.jpa.repository.EmotionRepository;
+import com.test.seems.emotion.jpa.entity.Emotion;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -42,6 +40,9 @@ public class UserTaskStatusService {
 
     @Autowired
     private ScaleAnalysisResultRepository scaleAnalysisResultRepository;
+
+    @Autowired
+    private EmotionRepository emotionRepository;
 
     @Autowired
     private UserAnalysisSummaryRepository userAnalysisSummaryRepository;
@@ -241,6 +242,19 @@ public class UserTaskStatusService {
             // aiResponse 대신 파싱된 객체에서 analysisComment를 가져옴
             userAnalysisSummary.setAnalysisComment((String) parsedAiResponse.get("aiInsightSummary"));
             userAnalysisSummary.setDominantEmotion((String) parsedAiResponse.get("dominantEmotion")); // 주요 감정 저장
+// dominantEmotion이 있을 때 EMOTION_ID도 저장
+            String dominantEmotion = (String) parsedAiResponse.get("dominantEmotion");
+            if (dominantEmotion != null && !dominantEmotion.isEmpty()) {
+                Emotion emotion = emotionRepository.findByEmotionName(dominantEmotion);
+                if (emotion != null) {
+                    userAnalysisSummary.setEmotionId(emotion.getEmotionId());
+                } else {
+                    userAnalysisSummary.setEmotionId(null); // 매칭되는 감정이 없으면 null
+                }
+            } else {
+                userAnalysisSummary.setEmotionId(null);
+            }
+
             userAnalysisSummary.setLastUpdated(new Date());
             userAnalysisSummary.setAnalysisCompleted(1);
 
