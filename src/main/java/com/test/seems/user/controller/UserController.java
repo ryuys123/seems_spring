@@ -2,6 +2,8 @@ package com.test.seems.user.controller;
 
 import com.test.seems.common.Paging;
 import com.test.seems.common.Search;
+import com.test.seems.log.model.dto.Log;
+import com.test.seems.log.model.service.LogService;
 import com.test.seems.notice.model.dto.Notice;
 import com.test.seems.user.model.dto.User;
 import com.test.seems.user.model.dto.UserInfoResponse;
@@ -10,6 +12,7 @@ import com.test.seems.user.model.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -35,6 +38,10 @@ import java.util.Map;
 @CrossOrigin		//리액트 애플리케이션 (포트가 다름)의 요청을 처리하기 위함
 public class UserController {
 
+
+    private final LogService logService;
+
+
     /**
      * 마이페이지 사용자 정보 API (/user/info)
      */
@@ -54,18 +61,43 @@ public class UserController {
     @PutMapping("user/info")
     public ResponseEntity<?> updateUserInfo(@RequestBody UserInfoResponse req, Authentication authentication) {
         String userId = authentication.getName();
-        
+
         try {
+            User beforeUser = userService.findByUserId(userId);
+
             boolean result = userService.updateUserInfo(userId, req);
             if (result) {
                 // 비밀번호 변경이 포함된 경우와 일반 정보 수정을 구분
-                boolean isPasswordChange = req.getCurrentPassword() != null && 
-                                         req.getNewPassword() != null && 
-                                         req.getConfirmPassword() != null;
-                
+                boolean isPasswordChange = req.getCurrentPassword() != null &&
+                        req.getNewPassword() != null &&
+                        req.getConfirmPassword() != null;
+
                 if (isPasswordChange) {
+                    // 로그 저장하기
+                    logService.saveLog(Log.builder()
+                            .userId(userId)
+                            .action("비밀번호 변경")
+                            .severity("INFO")
+                            .beforeData("비밀번호 변경 전: [암호화된 상태로 생략]")
+                            .afterData("비밀번호 변경 완료")
+                            .build());
                     return ResponseEntity.ok().body("비밀번호가 성공적으로 변경되었습니다.");
                 } else {
+                    // 2. 수정 후 사용자 정보 가져오기 (afterData용)
+                    User afterUser = userService.findByUserId(userId);
+                    log.info("beforeUser = {}", beforeUser);
+                    log.info("afterUser = {}", afterUser);
+                    // 로그 저장하기
+                    log.info(">>> 사용자 정보 변경 로그 저장 직전입니다");
+
+                    logService.saveLog(Log.builder()
+                            .userId(userId)
+                            .action("사용자 정보 수정")
+                            .severity("INFO")
+                            .beforeData("이름: " + beforeUser.getUserName() + ", 전화번호: " + beforeUser.getPhone())
+                            .afterData("이름: " + afterUser.getUserName() + ", 전화번호: " + afterUser.getPhone())
+                            .build());
+
                     return ResponseEntity.ok().body("프로필이 성공적으로 수정되었습니다.");
                 }
             } else {
@@ -84,11 +116,11 @@ public class UserController {
     public ResponseEntity<?> verifyPassword(@RequestBody Map<String, String> request, Authentication authentication) {
         String userId = authentication.getName();
         String password = request.get("password");
-        
+
         if (password == null || password.isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("비밀번호를 입력해주세요.");
         }
-        
+
         try {
             boolean isValid = userService.verifyUserPassword(userId, password);
             if (isValid) {
@@ -108,10 +140,10 @@ public class UserController {
     @DeleteMapping("/user/account")
     public ResponseEntity<?> deleteAccount(@RequestBody UserDeleteRequest request, Authentication authentication) {
         String userId = authentication.getName();
-        
+
         try {
             boolean result = false;
-            
+
             if ("normal".equals(request.getUserType())) {
                 // 일반 로그인 사용자 - 비밀번호 확인 후 탈퇴
                 if (request.getPassword() == null || request.getPassword().isEmpty()) {
@@ -124,14 +156,14 @@ public class UserController {
             } else {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("올바르지 않은 사용자 타입입니다.");
             }
-            
+
             if (result) {
                 log.info("회원 탈퇴 성공: userId={}, userType={}", userId, request.getUserType());
                 return ResponseEntity.ok().body("회원 탈퇴가 완료되었습니다.");
             } else {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("회원 탈퇴에 실패했습니다.");
             }
-            
+
         } catch (Exception e) {
             log.error("회원 탈퇴 중 오류 발생: userId={}, error={}", userId, e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("서버 오류가 발생했습니다.");
