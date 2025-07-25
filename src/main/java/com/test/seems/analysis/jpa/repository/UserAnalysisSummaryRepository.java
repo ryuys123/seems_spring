@@ -1,4 +1,4 @@
-package com.test.seems.analysis.jpa;
+package com.test.seems.analysis.jpa.repository;
 
 import com.test.seems.analysis.jpa.entity.UserAnalysisSummaryEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
