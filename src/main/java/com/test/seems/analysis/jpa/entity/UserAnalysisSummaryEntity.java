@@ -29,8 +29,8 @@ public class UserAnalysisSummaryEntity {
     @Column(name = "PSYCHO_SCALE_RESULT_ID")
     private Long psychoScaleResultId;
 
-    @Column(name = "emotion_id")
-    private Long emotionLogId;
+    @Column(name = "EMOTION_ID")
+    private Long emotionId;
 
     @Column(name = "SUMMARY_ID") // CounselingAnalysisSummaryEntity's summaryId
     private Long counselingSummaryId;
@@ -120,12 +120,12 @@ public class UserAnalysisSummaryEntity {
         this.psychoScaleResultId = psychoScaleResultId;
     }
 
-    public Long getEmotionLogId() {
-        return emotionLogId;
+    public Long getEmotionId() {
+        return emotionId;
     }
 
-    public void setEmotionLogId(Long emotionLogId) {
-        this.emotionLogId = emotionLogId;
+    public void setEmotionId(Long emotionId) {
+        this.emotionId = emotionId;
     }
 
     public Long getCounselingSummaryId() {

@@ -20,7 +20,7 @@ public class UserAnalysisSummaryDto {
     private Long psychoImageResultId;
     private Long personalityResultId;
     private Long psychoScaleResultId;
-    private Long emotionLogId;
+    private Long emotionId;
     private Long counselingSummaryId;
     private Long simulationResultId;
     private String analysisComment;
