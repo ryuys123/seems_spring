@@ -12,9 +12,12 @@ import org.springframework.boot.autoconfigure.domain.EntityScan;
 
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
+import org.springframework.data.jpa.repository.config.EnableJpaAuditing; // 추가
+
 //@SpringBootApplication(exclude = {SecurityAutoConfiguration.class}, scanBasePackages = "com.test.seems")
 @EnableJpaRepositories(basePackages = "com.test")
 @EntityScan(basePackages = "com.test")
+@EnableJpaAuditing // 추가
 @SpringBootApplication(scanBasePackages = "com.test")
 public class FirstApplication {
 

@@ -1,12 +1,15 @@
 package com.test.seems.counseling.model.service;
 
-//import com.test.seems.counseling.*;
+import com.test.seems.ai.service.AIService;
 import com.test.seems.counseling.model.dto.CounselingDto;
 import com.test.seems.counseling.jpa.entity.CounselingMessageEntity;
 import com.test.seems.counseling.jpa.repository.CounselingMessageRepository;
-import com.test.seems.counseling.jpa.repository.CounselingMessageRepository;
 import com.test.seems.counseling.jpa.entity.CounselingSessionEntity;
 import com.test.seems.counseling.jpa.repository.CounselingSessionRepository;
+import com.test.seems.counseling.jpa.entity.CounselingAnalysisSummaryEntity; // 추가
+import com.test.seems.counseling.jpa.repository.CounselingAnalysisSummaryRepository; // 추가
+import com.test.seems.guidance.jpa.entity.GuidanceTypeEntity; // 추가
+import com.test.seems.guidance.jpa.repository.GuidanceTypeRepository; // 추가
 import com.test.seems.user.jpa.entity.UserEntity;
 import com.test.seems.user.jpa.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map; // 추가
 import java.util.stream.Collectors;
 import java.util.Optional;
 
@@ -28,6 +32,9 @@ public class CounselingService {
     private final CounselingSessionRepository counselingSessionRepository;
     private final CounselingMessageRepository counselingMessageRepository;
     private final UserRepository userRepository;
+    private final AIService aiService; // 추가
+    private final CounselingAnalysisSummaryRepository counselingAnalysisSummaryRepository; // 추가
+    private final GuidanceTypeRepository guidanceTypeRepository; // 추가
 
     @Transactional
     public CounselingDto.HistoryResponse saveCounselingHistory(String username, CounselingDto.CreateRequest request) {
@@ -68,16 +75,51 @@ public class CounselingService {
         }
 
         // 2. 메시지 저장
-        for (CounselingDto.MessageDto messageDto : request.getMessages()) {
-            log.info("Saving message - sender: {}, type: {}, content length: {}", messageDto.getType(), messageDto.getText(), messageDto.getText().length());
-            com.test.seems.counseling.jpa.entity.CounselingMessageEntity messageEntity = CounselingMessageEntity.builder()
-                    .session(sessionEntity) // 기존 또는 새로 생성된 세션에 연결
-                    .sender(messageDto.getType().toUpperCase()) // USER, AI
-                    .messageType("TEXT") // 현재는 텍스트만 지원
-                    .messageContent(messageDto.getText())
-                    .messageTime(new Date()) // 현재 시간으로 메시지 시간 설정
+        List<CounselingMessageEntity> messageEntities = request.getMessages().stream()
+                .map(messageDto -> {
+                    log.info("Saving message - sender: {}, type: {}, content length: {}", messageDto.getType(), messageDto.getText(), messageDto.getText().length());
+                    return CounselingMessageEntity.builder()
+                            .session(sessionEntity) // 기존 또는 새로 생성된 세션에 연결
+                            .sender(messageDto.getType().toUpperCase()) // USER, AI
+                            .messageType("TEXT") // 현재는 텍스트만 지원
+                            .messageContent(messageDto.getText())
+                            .messageTime(new Date()) // 현재 시간으로 메시지 시간 설정
+                            .build();
+                })
+                .collect(Collectors.toList());
+        counselingMessageRepository.saveAll(messageEntities); // 모든 메시지를 한 번에 저장
+
+        // 3. AI를 통한 상담 내용 요약 및 저장
+        try {
+            Map<String, Object> aiSummaryResult = aiService.summarizeCounseling(messageEntities);
+
+            String summaryContent = (String) aiSummaryResult.get("summaryContent");
+            List<String> extractedKeywords = (List<String>) aiSummaryResult.get("extractedKeywords");
+
+            GuidanceTypeEntity guidanceType = null;
+            if (extractedKeywords != null && !extractedKeywords.isEmpty()) {
+                // 첫 번째 키워드를 사용하여 GuidanceType 조회
+                Optional<GuidanceTypeEntity> foundGuidanceType = guidanceTypeRepository.findByGuidanceTypeName(extractedKeywords.get(0));
+                if (foundGuidanceType.isPresent()) {
+                    guidanceType = foundGuidanceType.get();
+                } else {
+                    log.warn("No GuidanceType found for keyword: {}. Using default or null.", extractedKeywords.get(0));
+                    // TODO: 적절한 기본 GuidanceType을 설정하거나, "기타"와 같은 GuidanceType을 미리 DB에 추가하고 사용하도록 로직 개선 필요
+                }
+            }
+
+            CounselingAnalysisSummaryEntity summaryEntity = CounselingAnalysisSummaryEntity.builder()
+                    .session(sessionEntity)
+                    .summaryType("TEXT") // 현재는 텍스트 기반 요약
+                    .guidanceType(guidanceType) // 조회된 GuidanceTypeEntity 설정
+                    .summaryContent(summaryContent)
                     .build();
-            counselingMessageRepository.save(messageEntity);
+            counselingAnalysisSummaryRepository.save(summaryEntity);
+            log.info("Counseling analysis summary saved successfully for session: {}", sessionEntity.getSessionId());
+
+        } catch (Exception e) {
+            log.error("Failed to summarize counseling or save summary: {}", e.getMessage(), e);
+            // AI 요약 실패 시에도 상담 기록 저장은 성공으로 처리 (필요에 따라 롤백 정책 변경 가능)
         }
 
         return CounselingDto.HistoryResponse.fromEntity(sessionEntity);

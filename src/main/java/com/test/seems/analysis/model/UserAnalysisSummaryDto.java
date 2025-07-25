@@ -26,4 +26,5 @@ public class UserAnalysisSummaryDto {
     private String analysisComment;
     private Integer analysisCompleted;
     private List<Map<String, Object>> individualResults; // Python AI 서버에서 받은 개별 결과
+    private String dominantEmotion; // AI 종합 분석의 주요 감정
 }

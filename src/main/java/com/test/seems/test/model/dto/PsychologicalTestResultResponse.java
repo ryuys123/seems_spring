@@ -30,6 +30,7 @@ public class PsychologicalTestResultResponse {
     private String aiPerspectiveKeywords;
     private String aiInsightSummary; // AI가 제공하는 심층 분석 요약 (이미지/자유 텍스트용)
     private String suggestions; // 사용자에게 줄 제안 (모든 검사 유형에 공통적으로 사용 가능)
+    private String dominantEmotion; // AI가 도출한 핵심 감정 (추가된 필드)
 
     private LocalDateTime testDateTime; // 검사 수행 시간 (생성 시간)
 }
