@@ -20,6 +20,7 @@ public interface UserRepository extends JpaRepository<UserEntity, String>, UserR
     // 추가된 메소드를 가진 MemberRepositoryCustom 메소드도 사용 가능함
     // MemberRepositoryCustomImpl 이 오버라이딩한 코드도 동적 바인딩되므로 사용가능함
     UserEntity findByUserId(String userId); // userId로 사용자 조회
+    Optional<UserEntity> findByEmail(String email); // email로 사용자 조회
     UserEntity findByUserNameAndPhone(String userName, String phone);
   
       @Modifying

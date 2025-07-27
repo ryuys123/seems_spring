@@ -25,6 +25,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+
+
 @Slf4j
 @Configuration
 @EnableWebSecurity
@@ -60,7 +62,7 @@ public class SecurityConfig implements WebMvcConfigurer {
         // 임시로 평문도 허용하는 하이브리드 방식 (테스트용)
         return new PasswordEncoder() {
             private final BCryptPasswordEncoder bcryptEncoder = new BCryptPasswordEncoder();
-            
+
             @Override
             public String encode(CharSequence rawPassword) {
                 return bcryptEncoder.encode(rawPassword);
@@ -82,7 +84,7 @@ public class SecurityConfig implements WebMvcConfigurer {
     public BCryptPasswordEncoder bcryptPasswordEncoder() {
         return new BCryptPasswordEncoder();
     }
-    
+
 
 
     // 인증 (Authentication) 관리자를 스프링부트 컨테이너에 Bean 으로 등록해야 함
@@ -104,6 +106,10 @@ public class SecurityConfig implements WebMvcConfigurer {
     public FaceLoginFilter faceLoginFilter(JWTUtil jwtUtil) {
         return new FaceLoginFilter(jwtUtil);
     }
+
+
+
+
 
 
 
@@ -151,6 +157,7 @@ public class SecurityConfig implements WebMvcConfigurer {
                                 "/seems/js/**",
                                 "/seems/favicon.ico",
                                 "/seems/api/face-signup",
+
                                 "/api/psychological-test/**",
                                 "/api/simulation/**",
                                 "/api/psychological-test/image-question", // 이미지 문항 조회
@@ -166,6 +173,9 @@ public class SecurityConfig implements WebMvcConfigurer {
                                 "/api/user/owned-titles",
                                 "/api/simulation/**",
                                 "/seems/api/user/verification",
+                                "/seems/auth/**",
+                                "/oauth2/**", // OAuth2 인증 관련 경로 허용
+                                "/login/oauth2/code/**", // OAuth2 콜백 경로 허용
                                 "/api/emotions").permitAll()
                         // ===== 페이스로그인 관련 URL 허용 =====
                         .requestMatchers("/api/face/login").permitAll()
@@ -185,7 +195,7 @@ public class SecurityConfig implements WebMvcConfigurer {
                 // 해결방법 : JWTFilter 안에 특정 url 에 대해 토큰검사 제외하는 기능 추가함
                 .addFilterBefore(new JWTFilter(jwtUtil, userDetailsService), UsernamePasswordAuthenticationFilter.class)
                 // ===== 페이스로그인 필터 추가 =====
-                .addFilterBefore(faceLoginFilter, 
+                .addFilterBefore(faceLoginFilter,
                                UsernamePasswordAuthenticationFilter.class)
                 // 로그인 인증(Authentication) 은 인증 관리자(AuthenticationManager)가 관리해야 함
                 .addFilterAt(new LoginFilter(authenticationManager, jwtUtil, userRepository, refreshService, passwordEncoder()),
@@ -203,7 +213,7 @@ public class SecurityConfig implements WebMvcConfigurer {
                         .deleteCookies("JSESSIONID")  // 쿠키 제거
 
 
-                        
+
                 );
 
         return http.build();
