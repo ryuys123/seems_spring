@@ -291,17 +291,17 @@ public class SocialAuthController {
                         .then(response => response.json())
                         .then(data => {
                             if (data.success) {
-                                // 성공 시 부모 창에 메시지 전송
+                                // 성공 시 부모 창에 메시지 전송 (신규 사용자)
                                 if (window.opener) {
-                                                                    window.opener.postMessage({
-                                    type: 'social-signup-complete',
-                                    token: data.token,
-                                    refreshToken: data.refreshToken,
-                                    userName: data.userName,
-                                    userId: data.userId,
-                                    email: data.email,
-                                    isExistingUser: false
-                                }, "*");
+                                    window.opener.postMessage({
+                                        type: 'social-signup-complete',
+                                        token: data.token,
+                                        refreshToken: data.refreshToken,
+                                        userName: data.userName,
+                                        userId: data.userId,
+                                        email: data.email,
+                                        isExistingUser: false  // 신규 사용자
+                                    }, "*");
                                 }
                                 window.close();
                             } else {
@@ -354,6 +354,7 @@ public class SocialAuthController {
         response.setContentType("text/html; charset=UTF-8");
         response.getWriter().write(html);
         response.getWriter().flush();
+        log.info("추가 정보 입력 페이지 반환 완료 - 신규 사용자 (isExistingUser: false)");
     }
     
     // 성공 응답 페이지
@@ -379,7 +380,7 @@ public class SocialAuthController {
                                     userName: '%s',
                                     userId: '%s',
                                     email: '%s',
-                                    isExistingUser: true
+                                    isExistingUser: true  // 기존 사용자
                                 }, "*");
                             }
                         } catch (error) {
@@ -403,7 +404,7 @@ public class SocialAuthController {
         response.setContentType("text/html; charset=UTF-8");
         response.getWriter().write(html);
         response.getWriter().flush();
-        log.info("소셜 로그인 성공 페이지 반환 완료");
+        log.info("소셜 로그인 성공 페이지 반환 완료 - 기존 사용자 (isExistingUser: true)");
     }
     
     // 오류 응답 페이지
