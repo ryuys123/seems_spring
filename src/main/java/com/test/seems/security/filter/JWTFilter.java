@@ -175,6 +175,12 @@ public class JWTFilter extends OncePerRequestFilter {
         if (url.startsWith("/seems/auth/")) {
             return true;
         }
+        if (url.startsWith("/seems/api/reissue")) {
+            return true;
+        }
+        if (url.startsWith("/seems/reissue")) {
+            return true;
+        }
         if (url.startsWith("/logout")) {
             return false;
         }

@@ -16,6 +16,7 @@ public class UserInfoResponse {
     private String profileImage;
     private String joinDate;
     private int status;
+    private Boolean faceLinked; // 페이스 연동 상태
     
     // 비밀번호 변경용 필드들
     private String currentPassword;
@@ -30,6 +31,17 @@ public class UserInfoResponse {
         this.profileImage = profileImage;
         this.joinDate = joinDate;
         this.status = status;
+    }
+
+    // 페이스 연동 상태 포함 생성자
+    public UserInfoResponse(String userName, String email, String phone, String profileImage, String joinDate, int status, Boolean faceLinked) {
+        this.userName = userName;
+        this.email = email;
+        this.phone = phone;
+        this.profileImage = profileImage;
+        this.joinDate = joinDate;
+        this.status = status;
+        this.faceLinked = faceLinked;
     }
 
     // getter/setter 생략 (Lombok 사용)

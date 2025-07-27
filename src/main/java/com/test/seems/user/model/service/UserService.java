@@ -55,13 +55,18 @@ public class UserService {
     public UserInfoResponse getUserInfoByUserId(String userId) {
         UserEntity entity = userRepository.findByUserId(userId);
         if (entity == null) return null;
+        
+        // 페이스 연동 상태 확인
+        Boolean faceLinked = entity.getFaceLoginEnabled();
+        
         return new UserInfoResponse(
                 entity.getUserName(),
                 entity.getEmail(),
                 entity.getPhone(),
                 entity.getProfileImage(),
                 entity.getCreatedAt() != null ? entity.getCreatedAt().toString() : null,
-                entity.getStatus()
+                entity.getStatus(),
+                faceLinked
         );
     }
 

@@ -39,7 +39,6 @@ import java.util.Map;
 @CrossOrigin		//리액트 애플리케이션 (포트가 다름)의 요청을 처리하기 위함
 public class UserController {
 
-
     private final LogService logService;
 
 
