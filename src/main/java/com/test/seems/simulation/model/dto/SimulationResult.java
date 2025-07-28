@@ -1,27 +1,27 @@
-// com/test/seems/simulation/model/dto/SimulationResultDTO.java
+// D:\Finalworkspace\backend\src\main\java\com\test\seems\simulation\model\dto\SimulationResult.java
+
 package com.test.seems.simulation.model.dto;
 
-import com.test.seems.simulation.jpa.entity.SimulationResultEntity;
-import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.Getter;
+import java.time.LocalDateTime;
 
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
+@Getter
 @Builder
 public class SimulationResult {
-    private String resultTitle;        // ✅ PERSONALITY_TYPE에 매핑될 필드 (예: "냉철한 현실주의자")
-    private String resultSummary;      // ✅ RESULT_SUMMARY에 매핑될 필드 (예: "당신은 감상에 빠지기보다...")
-    private String personalityType;    // ✅ (선택적) 성향 키워드 (예: "REALISM", "CAUTION")
+    private Long userResultId;
     private Long settingId;
+    private String resultTitle;
+    private String resultSummary;
+    // ✨ 삭제할 필드
+    // private String personalityType;
 
-    // DTO를 Entity로 변환하는 메서드 (DB 저장을 위해 필요)
-    public SimulationResultEntity toEntity() {
-        return SimulationResultEntity.builder()
-                .resultSummary(this.resultSummary)
-                .personalityType(this.personalityType) // 이 필드가 PERSONALITY_TYPE 컬럼에 저장
-                .build();
-    }
+    // ✨ 새로 추가할 필드들 ✨
+    private Integer initialStressScore;
+    private Integer initialDepressionScore;
+    private Integer estimatedFinalStressScore;
+    private Integer estimatedFinalDepressionScore;
+    private String positiveContributionFactors; // 긍정적 기여 요인
+
+    private LocalDateTime createdAt;
 }

@@ -1,9 +1,18 @@
 package com.test.seems.analysis.jpa.entity;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.util.Date;
 
 @Entity
+@Data // ✨ @Data 어노테이션 적용: @Getter, @Setter, @RequiredArgsConstructor, @ToString, @EqualsAndHashCode 포함
+@Builder // ✨ @Builder 어노테이션 유지 (빌더 패턴 사용을 위해 필요)
+@NoArgsConstructor // ✨ @NoArgsConstructor 어노테이션 유지 (JPA 기본 생성자 필요)
+@AllArgsConstructor // ✨ @AllArgsConstructor 어노테이션 유지 (@Builder와 함께 사용 시 유용)
 @Table(name = "TB_USER_ANALYSIS_SUMMARY")
 public class UserAnalysisSummaryEntity {
 
@@ -52,11 +61,15 @@ public class UserAnalysisSummaryEntity {
     @Column(name = "DOMINANT_EMOTION", length = 50)
     private String dominantEmotion; // 주요 감정
 
-    // Constructors
-    public UserAnalysisSummaryEntity() {
-        this.lastUpdated = new Date();
-        this.analysisCompleted = 0; // 초기값 0으로 설정
-    }
+    // ✨ 새로 추가된 필드들 ✨
+    @Column(name = "STRESS_SCORE")
+    private Integer stressScore; // 스트레스 검사 점수
+
+    @Column(name = "DEPRESSION_SCORE")
+    private Integer depressionScore; // 우울증 검사 점수
+
+    // Constructor (Lombok @NoArgsConstructor, @AllArgsConstructor가 대체하므로 명시적 생성자는 삭제)
+    // public UserAnalysisSummaryEntity() { /* ... */ } // 삭제 또는 주석 처리
 
     @PrePersist
     protected void onCreate() {
@@ -71,108 +84,8 @@ public class UserAnalysisSummaryEntity {
         this.lastUpdated = new Date();
     }
 
-    // Getters and Setters
-    public Long getUserSummaryId() {
-        return userSummaryId;
-    }
-
-    public void setUserSummaryId(Long userSummaryId) {
-        this.userSummaryId = userSummaryId;
-    }
-
-    public String getUserId() {
-        return userId;
-    }
-
-    public void setUserId(String userId) {
-        this.userId = userId;
-    }
-
-    public Date getLastUpdated() {
-        return lastUpdated;
-    }
-
-    public void setLastUpdated(Date lastUpdated) {
-        this.lastUpdated = lastUpdated;
-    }
-
-    public Long getPsychoImageResultId() {
-        return psychoImageResultId;
-    }
-
-    public void setPsychoImageResultId(Long psychoImageResultId) {
-        this.psychoImageResultId = psychoImageResultId;
-    }
-
-    public Long getPersonalityResultId() {
-        return personalityResultId;
-    }
-
-    public void setPersonalityResultId(Long personalityResultId) {
-        this.personalityResultId = personalityResultId;
-    }
-
-    public Long getPsychoScaleResultId() {
-        return psychoScaleResultId;
-    }
-
-    public void setPsychoScaleResultId(Long psychoScaleResultId) {
-        this.psychoScaleResultId = psychoScaleResultId;
-    }
-
-    public Long getEmotionId() {
-        return emotionId;
-    }
-
-    public void setEmotionId(Long emotionId) {
-        this.emotionId = emotionId;
-    }
-
-    public Long getCounselingSummaryId() {
-        return counselingSummaryId;
-    }
-
-    public void setCounselingSummaryId(Long counselingSummaryId) {
-        this.counselingSummaryId = counselingSummaryId;
-    }
-
-    public Long getSimulationResultId() {
-        return simulationResultId;
-    }
-
-    public void setSimulationResultId(Long simulationResultId) {
-        this.simulationResultId = simulationResultId;
-    }
-
-    public String getAnalysisComment() {
-        return analysisComment;
-    }
-
-    public void setAnalysisComment(String analysisComment) {
-        this.analysisComment = analysisComment;
-    }
-
-    public String getIndividualResultsJson() {
-        return individualResultsJson;
-    }
-
-    public void setIndividualResultsJson(String individualResultsJson) {
-        this.individualResultsJson = individualResultsJson;
-    }
-
-    public Integer getAnalysisCompleted() {
-        return analysisCompleted;
-    }
-
-    public void setAnalysisCompleted(Integer analysisCompleted) {
-        this.analysisCompleted = analysisCompleted;
-    }
-
-    public String getDominantEmotion() {
-        return dominantEmotion;
-    }
-
-    public void setDominantEmotion(String dominantEmotion) {
-        this.dominantEmotion = dominantEmotion;
-    }
+    // Getters and Setters (Lombok @Data가 대체하므로 모두 삭제)
+    // public Long getUserSummaryId() { ... }
+    // public void setUserSummaryId(Long userSummaryId) { ... }
+    // ... 모든 Getter/Setter 메소드를 삭제합니다.
 }
