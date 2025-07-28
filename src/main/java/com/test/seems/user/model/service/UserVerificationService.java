@@ -29,6 +29,11 @@ public class UserVerificationService {
 
     // 인증번호 임시 저장소 (실제 서비스는 Redis 사용 권장)
     private final Map<String, String> verificationCodeStore = new ConcurrentHashMap<>();
+    // 인증번호 발송 시간 저장소 (유효시간 검증용)
+    private final Map<String, Long> verificationTimeStore = new ConcurrentHashMap<>();
+    
+    // 인증번호 유효시간 (3분)
+    private static final long VERIFICATION_VALID_TIME = 3 * 60 * 1000; // 3분을 밀리초로
 
     private DefaultMessageService messageService;
 
@@ -81,24 +86,68 @@ public class UserVerificationService {
     // 문자 인증번호 발송
     private UserVerificationResponse sendSmsVerification(UserVerificationRequest request) {
         String code = generateRandomCode();
+        long currentTime = System.currentTimeMillis();
+        
+        // 인증번호와 발송시간 저장
         verificationCodeStore.put(request.getPhone(), code);
+        verificationTimeStore.put(request.getPhone(), currentTime);
 
         boolean sent = sendSms(request.getPhone(), code);
 
         UserVerificationResponse response = new UserVerificationResponse();
         response.setSuccess(sent);
         response.setMessage(sent ? "인증번호가 발송되었습니다." : "문자 발송에 실패했습니다.");
+        
+        log.info("인증번호 발송 - 전화번호: {}, 유효시간: 3분", request.getPhone());
         return response;
     }
 
     // 문자 인증번호 검증
     private UserVerificationResponse verifySmsCode(UserVerificationRequest request) {
         String storedCode = verificationCodeStore.get(request.getPhone());
-        boolean success = storedCode != null && storedCode.equals(request.getVerificationCode());
-
+        Long sentTime = verificationTimeStore.get(request.getPhone());
+        
         UserVerificationResponse response = new UserVerificationResponse();
-        response.setSuccess(success);
-        response.setMessage(success ? "인증이 완료되었습니다." : "인증번호가 일치하지 않습니다.");
+        
+        // 인증번호가 없는 경우
+        if (storedCode == null || sentTime == null) {
+            response.setSuccess(false);
+            response.setMessage("발송된 인증번호가 없습니다. 다시 요청해주세요.");
+            return response;
+        }
+        
+        // 유효시간 확인 (3분)
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - sentTime > VERIFICATION_VALID_TIME) {
+            // 만료된 인증번호 삭제
+            verificationCodeStore.remove(request.getPhone());
+            verificationTimeStore.remove(request.getPhone());
+            
+            response.setSuccess(false);
+            response.setMessage("인증번호가 만료되었습니다. 다시 요청해주세요.");
+            log.info("인증번호 만료 - 전화번호: {}, 경과시간: {}초", 
+                request.getPhone(), (currentTime - sentTime) / 1000);
+            return response;
+        }
+        
+        // 인증번호 일치 확인
+        boolean success = storedCode.equals(request.getVerificationCode());
+        
+        if (success) {
+            // 인증 성공시 저장된 인증번호 삭제 (재사용 방지)
+            verificationCodeStore.remove(request.getPhone());
+            verificationTimeStore.remove(request.getPhone());
+            
+            response.setSuccess(true);
+            response.setMessage("인증이 완료되었습니다.");
+            log.info("인증번호 검증 성공 - 전화번호: {}", request.getPhone());
+        } else {
+            response.setSuccess(false);
+            response.setMessage("인증번호가 일치하지 않습니다.");
+            log.info("인증번호 검증 실패 - 전화번호: {}, 입력값: {}", 
+                request.getPhone(), request.getVerificationCode());
+        }
+        
         return response;
     }
 
@@ -197,7 +246,7 @@ public class UserVerificationService {
             Message message = new Message();
             message.setFrom(sender);
             message.setTo(phone);
-            message.setText("[SEEMS] 인증번호: " + code);
+            message.setText("SEEMS 인증번호: " + code + " (3분 유효, 타인 공유 금지)");
 
             messageService.send(message);
             return true;

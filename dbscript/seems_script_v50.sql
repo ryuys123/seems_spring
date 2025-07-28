@@ -50,6 +50,7 @@ DROP SEQUENCE SEQ_QUEST_RECOMMENDATIONS_RECOMMENDATION_ID;
 DROP SEQUENCE SEQ_USER_QUEST_STATS_STAT_ID;
 DROP SEQUENCE TB_SIMULATION_USER_RESULTS_SEQ;
 DROP SEQUENCE TB_SIMULATION_RESULTS_SEQ;
+DROP SEQUENCE SEQ_TB_SIMULATION_USER_RESULT_ID;
 
 
 
@@ -228,7 +229,7 @@ CREATE TABLE TB_USERS (
                           PHONE VARCHAR2(100),
                           USER_PWD VARCHAR2(255),
                           USERNAME VARCHAR2(50) NOT NULL,
-                          PROFILE_IMAGE VARCHAR2(500), -- 프로필 사진 (페이스 로그인과 별도)
+                          PROFILE_IMAGE VARCHAR2(4000), -- 프로필 사진 (페이스 로그인과 별도)
                           EMAIL VARCHAR2(100), -- 이메일 (선택사항으로 변경)
                           FACE_LOGIN_ENABLED NUMBER(1) DEFAULT 0, -- 페이스 로그인 활성화 여부
                           CREATED_AT DATE DEFAULT SYSDATE NOT NULL,
@@ -1826,23 +1827,36 @@ INSERT INTO TB_SIMULATION_RESULTS (result_id, result_type, personality_type, res
 INSERT INTO TB_SIMULATION_RESULTS (result_id, result_type, personality_type, result_title, result_summary) VALUES
     (40, 'TEMPLATE', 'UNKNOWN', '알 수 없는 마음의 여행자', '당신의 선택은 여러 가지 성향이 복합적으로 나타나 하나의 키워드로 정의하기 어렵습니다. 이는 당신이 다양한 가능성을 지닌 다면적인 사람이라는 것을 의미할 수 있습니다. 계속해서 자신을 탐색해보세요.');
 
--- . 사용자 결과 저장을 위한 새 테이블 생성
+-- 사용자 결과 저장을 위한 테이블 생성 (수정본)
 CREATE TABLE TB_SIMULATION_USER_RESULTS (
                                             user_result_id NUMBER(19,0) NOT NULL PRIMARY KEY,
                                             setting_id NUMBER(19,0) NOT NULL UNIQUE,
-                                            personality_type VARCHAR2(50) NOT NULL,
+    -- personality_type VARCHAR2(50) NOT NULL, -- ✅ 성향 타입 컬럼은 제거
                                             result_title VARCHAR2(255) NOT NULL,
                                             result_summary VARCHAR2(2000),
+
+    -- ✨ 새로 추가된 컬럼들 ✨
+                                            initial_stress_score NUMBER(5,0),        -- 시뮬레이션 시작 전 스트레스 점수
+                                            initial_depression_score NUMBER(5,0),   -- 시뮬레이션 시작 전 우울감 점수
+                                            estimated_final_stress_score NUMBER(5,0), -- 시뮬레이션 후 AI 추정 스트레스 점수
+                                            estimated_final_depression_score NUMBER(5,0), -- 시뮬레이션 후 AI 추정 우울감 점수
+                                            positive_contribution_factors VARCHAR2(2000), -- AI가 분석한 긍정적 기여 요인 (요약 텍스트)
+
                                             created_at TIMESTAMP DEFAULT SYSDATE NOT NULL
 );
 
--- . 테이블 및 각 컬럼에 대한 설명(코멘트) 추가
+-- 테이블 및 각 컬럼에 대한 설명(코멘트) 추가 (수정본)
 COMMENT ON TABLE TB_SIMULATION_USER_RESULTS IS '사용자별 시뮬레이션 최종 결과 저장 테이블';
 COMMENT ON COLUMN TB_SIMULATION_USER_RESULTS.user_result_id IS '사용자 결과 ID (PK)';
 COMMENT ON COLUMN TB_SIMULATION_USER_RESULTS.setting_id IS '시뮬레이션 진행 ID (FK, TB_SIMULATION_SETTINGS)';
-COMMENT ON COLUMN TB_SIMULATION_USER_RESULTS.personality_type IS '분석된 최종 성향 키워드';
 COMMENT ON COLUMN TB_SIMULATION_USER_RESULTS.result_title IS '결과 제목';
 COMMENT ON COLUMN TB_SIMULATION_USER_RESULTS.result_summary IS '결과 요약 내용';
+-- ✨ 새로 추가된 컬럼에 대한 코멘트 ✨
+COMMENT ON COLUMN TB_SIMULATION_USER_RESULTS.initial_stress_score IS '시뮬레이션 시작 전 사용자 스트레스 검사 점수';
+COMMENT ON COLUMN TB_SIMULATION_USER_RESULTS.initial_depression_score IS '시뮬레이션 시작 전 사용자 우울감 검사 점수';
+COMMENT ON COLUMN TB_SIMULATION_USER_RESULTS.estimated_final_stress_score IS '시뮬레이션 후 AI가 추정한 최종 스트레스 점수';
+COMMENT ON COLUMN TB_SIMULATION_USER_RESULTS.estimated_final_depression_score IS '시뮬레이션 후 AI가 추정한 최종 우울감 점수';
+COMMENT ON COLUMN TB_SIMULATION_USER_RESULTS.positive_contribution_factors IS '시뮬레이션 과정에서 AI가 분석한 사용자의 긍정적 기여 요인';
 COMMENT ON COLUMN TB_SIMULATION_USER_RESULTS.created_at IS '결과 저장 시간';
 
 --(250716 신선혜 :  IMP_END_DATE NULLABLE 허용으로 변경 )
@@ -2992,5 +3006,49 @@ COMMENT ON COLUMN TB_USER_ANALYSIS_SUMMARY.DOMINANT_EMOTION IS 'AI가 분석한 
 COMMIT;
 
 ALTER TABLE TB_SIMULATION_SETTINGS MODIFY (SCENARIO_ID NULL);
+
+COMMIT;
+
+-- TB_USER_ANALYSIS_SUMMARY 테이블에 STRESS_SCORE 컬럼 추가
+ALTER TABLE TB_USER_ANALYSIS_SUMMARY
+    ADD STRESS_SCORE NUMBER(5,0); -- NUMBER(5,0)은 총 5자리 정수를 의미합니다.
+
+-- TB_USER_ANALYSIS_SUMMARY 테이블에 DEPRESSION_SCORE 컬럼 추가
+ALTER TABLE TB_USER_ANALYSIS_SUMMARY
+    ADD DEPRESSION_SCORE NUMBER(5,0);
+
+-- (선택 사항이지만 권장) 추가된 컬럼에 대한 코멘트 추가
+COMMENT ON COLUMN TB_USER_ANALYSIS_SUMMARY.STRESS_SCORE IS '스트레스 검사 점수';
+COMMENT ON COLUMN TB_USER_ANALYSIS_SUMMARY.DEPRESSION_SCORE IS '우울증 검사 점수';
+
+-- TB_SIMULATION_SETTINGS 테이블에 CURRENT_QUESTION_NUMBER 컬럼 추가
+ALTER TABLE TB_SIMULATION_SETTINGS
+    ADD CURRENT_QUESTION_NUMBER NUMBER(5,0); -- NUMBER(5,0)은 총 5자리 정수를 의미합니다.
+
+-- TB_SIMULATION_SETTINGS 테이블에 TOTAL_QUESTIONS_COUNT 컬럼 추가
+ALTER TABLE TB_SIMULATION_SETTINGS
+    ADD TOTAL_QUESTIONS_COUNT NUMBER(5,0);
+
+-- TB_SIMULATION_SETTINGS 테이블에 INITIAL_STRESS_SCORE 컬럼 추가
+ALTER TABLE TB_SIMULATION_SETTINGS
+    ADD INITIAL_STRESS_SCORE NUMBER(5,0);
+
+-- TB_SIMULATION_SETTINGS 테이블에 INITIAL_DEPRESSION_SCORE 컬럼 추가
+ALTER TABLE TB_SIMULATION_SETTINGS
+    ADD INITIAL_DEPRESSION_SCORE NUMBER(5,0);
+
+-- (선택 사항이지만 권장) 추가된 컬럼에 대한 코멘트 추가
+COMMENT ON COLUMN TB_SIMULATION_SETTINGS.CURRENT_QUESTION_NUMBER IS '현재 진행 중인 시뮬레이션 질문 번호';
+COMMENT ON COLUMN TB_SIMULATION_SETTINGS.TOTAL_QUESTIONS_COUNT IS '시뮬레이션의 총 질문 개수';
+COMMENT ON COLUMN TB_SIMULATION_SETTINGS.INITIAL_STRESS_SCORE IS '시뮬레이션 시작 전 사용자 스트레스 검사 점수';
+COMMENT ON COLUMN TB_SIMULATION_SETTINGS.INITIAL_DEPRESSION_SCORE IS '시뮬레이션 시작 전 사용자 우울감 검사 점수';
+
+-- 2. 시퀀스 생성 (아직 없다면)
+-- 시뮬레이션 사용자 결과 ID를 위한 시퀀스 생성
+CREATE SEQUENCE SEQ_TB_SIMULATION_USER_RESULTS_ID
+    START WITH 1
+    INCREMENT BY 1
+    NOCACHE
+NOCYCLE;
 
 COMMIT;

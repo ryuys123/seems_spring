@@ -24,7 +24,7 @@ public class SocialLoginService {
     private final UserRepository userRepository;
 
     // OAuth2 설정
-    @Value("88204759456-9e7upkfu68je4ub0r2kqa0q93ih4684b.apps.googleusercontent.com")
+    @Value("${oauth2.google.client-id}")
     private String googleClientId;
     
     @Value("${oauth2.google.client-secret}")
@@ -84,11 +84,15 @@ public class SocialLoginService {
                 googleClientId, googleClientSecret, code, googleRedirectUri
             );
             
+            log.info("Google 토큰 요청 - client_id: {}, redirect_uri: {}", googleClientId, googleRedirectUri);
+            log.info("토큰 요청 URL: {}", tokenUrl);
+            
             HttpEntity<String> tokenRequest = new HttpEntity<>(tokenBody, headers);
             ResponseEntity<Map> tokenResponse = restTemplate.postForEntity(tokenUrl, tokenRequest, Map.class);
             
             if (tokenResponse.getStatusCode() != HttpStatus.OK || tokenResponse.getBody() == null) {
                 log.error("Google 토큰 요청 실패: {}", tokenResponse.getStatusCode());
+                log.error("응답 본문: {}", tokenResponse.getBody());
                 return null;
             }
             

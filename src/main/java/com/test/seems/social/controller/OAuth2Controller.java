@@ -44,23 +44,19 @@ public class OAuth2Controller {
     @GetMapping("/oauth2/authorization/{provider}")
     public void oauth2Authorization(@PathVariable String provider, HttpServletResponse response) throws IOException {
         log.info("OAuth2 인증 요청: {}", provider);
+        log.info("사용할 Google 클라이언트 ID: {}", googleClientId);
         
         // 각 소셜 로그인 제공자의 인증 URL로 리다이렉트
         String authUrl = "";
         switch (provider.toLowerCase()) {
             case "google":
-                // Google OAuth2 - PKCE 방식 사용
-                String codeVerifier = generateCodeVerifier();
-                String codeChallenge = generateCodeChallenge(codeVerifier);
-                
+                // Google OAuth2 - 임시로 일반 방식 사용 (PKCE 제거)
                 authUrl = "https://accounts.google.com/o/oauth2/v2/auth?" +
                         "client_id=" + googleClientId +
                         "&redirect_uri=" + googleRedirectUri +
                         "&response_type=code" +
-                        "&scope=" + googleScope +
-                        "&state=" + provider +
-                        "&code_challenge=" + codeChallenge +
-                        "&code_challenge_method=S256";
+                        "&scope=" + googleScope.replace(" ", "%20") +
+                        "&state=" + provider;
                 break;
             case "kakao":
                 authUrl = "https://kauth.kakao.com/oauth/authorize?" +
