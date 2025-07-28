@@ -15,4 +15,5 @@ public interface PsychologicalImageResultRepository extends JpaRepository<Psycho
     Optional<PsychologicalTestResultEntity> findByResultId(Long resultId);
     Optional<PsychologicalTestResultEntity> findByUserIdAndResultId(String userId, Long resultId);
     Optional<PsychologicalTestResultEntity> findTop1ByUserIdOrderByCreatedAtDesc(String userId);
+    boolean existsByUserId(String userId);
 }

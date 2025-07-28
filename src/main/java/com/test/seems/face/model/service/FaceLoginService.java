@@ -74,15 +74,42 @@ public class FaceLoginService {
             }
 
             UserEntity user = userOpt.get();
+            
+            // 페이스 로그인 정보 조회 (전체 메서드에서 사용)
+            List<FaceLoginEntity> faceLogins = faceLoginRepository.findByUserId(recognizedUserId);
+            
             if (!user.getFaceLoginEnabled()) {
                 log.warn("페이스 로그인이 비활성화된 사용자: {}", recognizedUserId);
-                return FaceLoginResponse.failure("페이스 로그인이 비활성화되었습니다.");
+                
+                // 페이스 로그인 정보가 있는 경우 자동으로 활성화
+                if (!faceLogins.isEmpty()) {
+                    log.info("페이스 로그인 정보가 존재하므로 자동 활성화: userId={}", recognizedUserId);
+                    user.setFaceLoginEnabled(true);
+                    user.setUpdatedAt(new java.util.Date());
+                    userRepository.save(user);
+                    log.info("페이스 로그인 자동 활성화 완료: userId={}", recognizedUserId);
+                } else {
+                    return FaceLoginResponse.failure("페이스 로그인이 비활성화되었습니다.");
+                }
             }
 
             // 3. JWT 토큰 생성
             String role = user.getAdminYn().equals("Y") ? "ADMIN" : "USER";
-            String accessToken = jwtUtil.createFaceJwt("access", user.getUserId(), user.getUserName(), role, 600000L); // 10분
-            String refreshToken = jwtUtil.createFaceJwt("refresh", user.getUserId(), user.getUserName(), role, 86400000L); // 24시간
+            log.info("JWT 토큰 생성 시작: userId={}, userName={}, role={}", user.getUserId(), user.getUserName(), role);
+            
+            String accessToken;
+            String refreshToken;
+            
+            try {
+                accessToken = jwtUtil.createFaceJwt("access", user.getUserId(), user.getUserName(), role, 600000L); // 10분
+                refreshToken = jwtUtil.createFaceJwt("refresh", user.getUserId(), user.getUserName(), role, 86400000L); // 24시간
+                log.info("JWT 토큰 생성 성공: accessToken 길이={}, refreshToken 길이={}", 
+                        accessToken != null ? accessToken.length() : "null", 
+                        refreshToken != null ? refreshToken.length() : "null");
+            } catch (Exception e) {
+                log.error("JWT 토큰 생성 실패: userId={}, error={}", user.getUserId(), e.getMessage(), e);
+                return FaceLoginResponse.failure("토큰 생성 중 오류가 발생했습니다.");
+            }
 
             // 4. Refresh 토큰 저장
             RefreshToken refreshTokenEntity = RefreshToken.builder()
@@ -92,8 +119,7 @@ public class FaceLoginService {
                 .build();
             refreshService.saveRefresh(refreshTokenEntity);
 
-            // 5. 페이스 로그인 정보 업데이트
-            List<FaceLoginEntity> faceLogins = faceLoginRepository.findByUserId(recognizedUserId);
+            // 5. 페이스 로그인 정보 업데이트 (이미 위에서 조회했으므로 재사용)
             if (!faceLogins.isEmpty()) {
                 FaceLoginEntity faceLogin = faceLogins.get(0);
                 faceLogin.setLastUsedAt(LocalDateTime.now());
@@ -122,7 +148,25 @@ public class FaceLoginService {
     @Transactional
     public FaceRegistrationResponse registerFace(FaceRegistrationRequest request) {
         try {
-            log.info("페이스 등록 시작: 사용자 {}", request.getUserId());
+            log.info("페이스 등록 시작: 전체 요청 데이터={}", request);
+            
+            // 입력 검증
+            if (request.getUserId() == null || request.getUserId().trim().isEmpty()) {
+                log.error("페이스 등록 실패: userId가 null이거나 비어있음");
+                return FaceRegistrationResponse.failure("사용자 ID는 필수입니다.");
+            }
+            
+            if (request.getFaceName() == null || request.getFaceName().trim().isEmpty()) {
+                log.error("페이스 등록 실패: faceName이 null이거나 비어있음");
+                return FaceRegistrationResponse.failure("페이스 이름은 필수입니다.");
+            }
+            
+            if (request.getFaceImageData() == null || request.getFaceImageData().trim().isEmpty()) {
+                log.error("페이스 등록 실패: faceImageData가 null이거나 비어있음");
+                return FaceRegistrationResponse.failure("얼굴 이미지 데이터는 필수입니다.");
+            }
+            
+            log.info("페이스 등록 시작: 사용자 {}, faceName={}", request.getUserId(), request.getFaceName());
 
             // 1. 사용자 정보 조회
             Optional<UserEntity> userOpt = userRepository.findById(request.getUserId());
@@ -159,8 +203,12 @@ public class FaceLoginService {
             }
 
             // 5. DB에 페이스 로그인 정보 저장
+            // faceIdHash 생성 (userId + faceName + timestamp 기반)
+            String faceIdHash = generateFaceIdHash(user.getUserId(), request.getFaceName());
+            
             FaceLoginEntity faceLogin = FaceLoginEntity.builder()
                     .userId(user.getUserId())
+                    .faceIdHash(faceIdHash)
                     .faceImagePath("deepface_registered") // DeepFace 서비스에서 관리
                     .faceName(request.getFaceName())
                     .createdBy(user.getUserName())
@@ -169,7 +217,10 @@ public class FaceLoginService {
 
             // 6. 사용자의 페이스 로그인 활성화
             user.setFaceLoginEnabled(true);
-            userRepository.save(user);
+            user.setUpdatedAt(new java.util.Date());
+            UserEntity updatedUser = userRepository.save(user);
+            log.info("사용자 페이스 로그인 활성화: userId={}, faceLoginEnabled={}", 
+                    updatedUser.getUserId(), updatedUser.getFaceLoginEnabled());
 
             log.info("페이스 등록 성공: userId={}, faceName={}", user.getUserId(), request.getFaceName());
             return FaceRegistrationResponse.success(savedFaceLogin.getFaceLoginId(), request.getFaceName());
@@ -177,6 +228,30 @@ public class FaceLoginService {
         } catch (Exception e) {
             log.error("페이스 등록 예외: userId={}, faceName={}, error={}", request.getUserId(), request.getFaceName(), e.getMessage());
             return FaceRegistrationResponse.failure("페이스 등록 처리 중 오류가 발생했습니다.");
+        }
+    }
+
+    /**
+     * faceIdHash 생성 메서드
+     */
+    private String generateFaceIdHash(String userId, String faceName) {
+        try {
+            String input = userId + "_" + faceName + "_" + System.currentTimeMillis();
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hashBytes = md.digest(input.getBytes("UTF-8"));
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hashBytes) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) {
+                    hexString.append('0');
+                }
+                hexString.append(hex);
+            }
+            return hexString.toString();
+        } catch (Exception e) {
+            log.error("faceIdHash 생성 중 오류: {}", e.getMessage());
+            // 폴백: 간단한 해시 생성
+            return userId + "_" + faceName + "_" + System.currentTimeMillis();
         }
     }
 
@@ -209,6 +284,7 @@ public class FaceLoginService {
             if (userOpt.isPresent()) {
                 UserEntity user = userOpt.get();
                 user.setFaceLoginEnabled(false);
+                user.setUpdatedAt(new java.util.Date());
                 userRepository.save(user);
             }
 
@@ -265,29 +341,96 @@ public class FaceLoginService {
     @Transactional
     public FaceSignupResponse faceSignup(FaceSignupRequest request) {
         try {
-            log.info("페이스 회원가입 시작: 사용자 {}", request.getUserId());
-
-            // 1. 사용자 ID 중복 확인
-            Optional<UserEntity> existingUser = userRepository.findById(request.getUserId());
-            if (existingUser.isPresent()) {
-                log.warn("이미 존재하는 사용자 ID: {}", request.getUserId());
-                return FaceSignupResponse.failure("이미 존재하는 사용자 ID입니다.");
+            log.info("페이스 회원가입 시작: 전체 요청 데이터={}", request);
+            log.info("isExistingUser 플래그: {}", request.getIsExistingUser());
+            
+            // 입력 검증
+            if (request.getUserId() == null || request.getUserId().trim().isEmpty()) {
+                log.error("페이스 회원가입 실패: userId가 null이거나 비어있음");
+                return FaceSignupResponse.failure("사용자 ID는 필수입니다.");
             }
+            
+            if (request.getUsername() == null || request.getUsername().trim().isEmpty()) {
+                log.error("페이스 회원가입 실패: username이 null이거나 비어있음");
+                return FaceSignupResponse.failure("사용자 이름은 필수입니다.");
+            }
+            
+            if (request.getPhone() == null || request.getPhone().trim().isEmpty()) {
+                log.error("페이스 회원가입 실패: phone이 null이거나 비어있음");
+                return FaceSignupResponse.failure("전화번호는 필수입니다.");
+            }
+            
+            // isExistingUser가 true인 경우 비밀번호 검증 생략
+            if (request.getIsExistingUser() == null || !request.getIsExistingUser()) {
+                if (request.getPassword() == null || request.getPassword().trim().isEmpty()) {
+                    log.error("페이스 회원가입 실패: password가 null이거나 비어있음 (신규 사용자)");
+                    return FaceSignupResponse.failure("비밀번호는 필수입니다.");
+                }
+            } else {
+                log.info("기존 사용자 페이스 연동: 비밀번호 검증 생략");
+            }
+            
+            log.info("페이스 회원가입 시작: 사용자 {}, username={}, phone={}, isExistingUser={}", 
+                    request.getUserId(), request.getUsername(), request.getPhone(), request.getIsExistingUser());
 
-            // 2. userService.insertUser()를 사용해 회원가입(비밀번호 해싱 포함)
-            User userDto = User.builder()
-                    .userId(request.getUserId())
-                    .userName(request.getUsername())
-                    .phone(request.getPhone())
-                    .userPwd(request.getPassword())
-                    .status(1)
-                    .adminYn("N")
-                    .faceLoginEnabled(true)
-                    .build();
-            log.info("userDto.getUserPwd()={}", userDto.getUserPwd());
-            User savedUser = userService.insertUser(userDto);
-            log.info("사용자 정보 저장 성공: userId={}, userName={}, phone={}, faceLoginEnabled={}, userPwd={}",
-                    savedUser.getUserId(), savedUser.getUserName(), savedUser.getPhone(), savedUser.getFaceLoginEnabled(), savedUser.getUserPwd());
+            User savedUser;
+            
+            // isExistingUser가 true인 경우 기존 사용자 확인 및 페이스 연동만 처리
+            if (request.getIsExistingUser() != null && request.getIsExistingUser()) {
+                log.info("기존 사용자 페이스 연동 모드");
+                
+                // 1. 기존 사용자 확인
+                Optional<UserEntity> existingUser = userRepository.findById(request.getUserId());
+                if (!existingUser.isPresent()) {
+                    log.error("기존 사용자 페이스 연동 실패: 존재하지 않는 사용자 ID: {}", request.getUserId());
+                    return FaceSignupResponse.failure("존재하지 않는 사용자 ID입니다.");
+                }
+                
+                UserEntity userEntity = existingUser.get();
+                
+                // 2. 기존 사용자의 face_login_enabled를 true로 업데이트
+                userEntity.setFaceLoginEnabled(true);
+                userEntity.setUpdatedAt(new java.util.Date());
+                UserEntity updatedUserEntity = userRepository.save(userEntity);
+                log.info("기존 사용자 페이스 로그인 활성화: userId={}, faceLoginEnabled={}", 
+                        updatedUserEntity.getUserId(), updatedUserEntity.getFaceLoginEnabled());
+                
+                savedUser = User.builder()
+                        .userId(updatedUserEntity.getUserId())
+                        .userName(updatedUserEntity.getUserName())
+                        .phone(updatedUserEntity.getPhone())
+                        .userPwd(updatedUserEntity.getUserPwd())
+                        .status(updatedUserEntity.getStatus())
+                        .adminYn(updatedUserEntity.getAdminYn())
+                        .faceLoginEnabled(true)
+                        .build();
+                
+                log.info("기존 사용자 정보 로드: userId={}, userName={}", savedUser.getUserId(), savedUser.getUserName());
+            } else {
+                log.info("신규 사용자 회원가입 모드");
+                
+                // 1. 사용자 ID 중복 확인
+                Optional<UserEntity> existingUser = userRepository.findById(request.getUserId());
+                if (existingUser.isPresent()) {
+                    log.warn("이미 존재하는 사용자 ID: {}", request.getUserId());
+                    return FaceSignupResponse.failure("이미 존재하는 사용자 ID입니다.");
+                }
+
+                // 2. userService.insertUser()를 사용해 회원가입(비밀번호 해싱 포함)
+                User userDto = User.builder()
+                        .userId(request.getUserId())
+                        .userName(request.getUsername())
+                        .phone(request.getPhone())
+                        .userPwd(request.getPassword())
+                        .status(1)
+                        .adminYn("N")
+                        .faceLoginEnabled(true)
+                        .build();
+                log.info("userDto.getUserPwd()={}", userDto.getUserPwd());
+                savedUser = userService.insertUser(userDto);
+                log.info("사용자 정보 저장 성공: userId={}, userName={}, phone={}, faceLoginEnabled={}, userPwd={}",
+                        savedUser.getUserId(), savedUser.getUserName(), savedUser.getPhone(), savedUser.getFaceLoginEnabled(), savedUser.getUserPwd());
+            }
 
             // 3. 얼굴 중복 등록 체크 (다른 계정에서 이미 등록된 얼굴인지 확인)
             log.info("얼굴 중복 등록 체크 시작");
@@ -320,12 +463,13 @@ public class FaceLoginService {
             log.info("DeepFace 서비스에서 얼굴 등록 성공: userId={}", request.getUserId());
 
             // 5. 페이스 로그인 정보 생성 및 저장
+            String faceIdHash = generateFaceIdHash(request.getUserId(), "front");
             FaceLoginEntity faceLoginEntity = FaceLoginEntity.builder()
                     .userId(request.getUserId())
-                    .faceIdHash("temp_hash_" + request.getUserId() + "_" + System.currentTimeMillis())
+                    .faceIdHash(faceIdHash)
                     .faceImagePath("/faces/" + request.getUserId() + "_front.jpg")
                     .faceName("front")
-                    .isActive(deepfaceSuccess)
+                    .isActive(deepfaceSuccess ? 1 : 0)
                     .createdBy(request.getUserId())
                     .build();
             FaceLoginEntity savedFaceLogin = faceLoginRepository.save(faceLoginEntity);

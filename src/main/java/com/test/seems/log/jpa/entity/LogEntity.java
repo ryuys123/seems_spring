@@ -25,6 +25,7 @@ public class LogEntity {
             sequenceName = "SEQ_SYSTEM_LOGS_LOG_ID",
             allocationSize = 1
     )    @Column(name = "LOG_ID", nullable = false)
+
     private int logId;
     @Column(name = "USER_ID")
     private String userId;

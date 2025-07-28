@@ -18,6 +18,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -38,7 +39,6 @@ import java.util.Map;
 @CrossOrigin		//리액트 애플리케이션 (포트가 다름)의 요청을 처리하기 위함
 public class UserController {
 
-
     private final LogService logService;
 
 
@@ -47,23 +47,123 @@ public class UserController {
      */
     @GetMapping("user/info")
     public ResponseEntity<UserInfoResponse> getUserInfo(Authentication authentication) {
-        String userId = authentication.getName(); // 인증 방식에 따라 다를 수 있음
+        String userId = authentication.getName();
         UserInfoResponse userInfo = userService.getUserInfoByUserId(userId);
+        
         if (userInfo == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
+        
+        log.info("사용자 정보 조회 - userId: {}, profileImage: {}", userId, userInfo.getProfileImage());
+        
+        // 프로필 사진을 Base64로 인코딩하여 포함
+        if (userInfo.getProfileImage() != null && !userInfo.getProfileImage().isEmpty()) {
+            try {
+                String savePath = uploadDir + "/photo";
+                File file = new File(savePath, userInfo.getProfileImage());
+                
+                log.info("프로필 이미지 파일 경로: {}", file.getAbsolutePath());
+                log.info("프로필 이미지 파일 존재 여부: {}", file.exists());
+                
+                if (file.exists()) {
+                    byte[] fileBytes = java.nio.file.Files.readAllBytes(file.toPath());
+                    String base64Image = java.util.Base64.getEncoder().encodeToString(fileBytes);
+                    
+                    // 파일 확장자에 따라 적절한 MIME 타입 설정
+                    String mimeType = "image/jpeg"; // 기본값
+                    if (userInfo.getProfileImage().toLowerCase().endsWith(".png")) {
+                        mimeType = "image/png";
+                    } else if (userInfo.getProfileImage().toLowerCase().endsWith(".gif")) {
+                        mimeType = "image/gif";
+                    }
+                    
+                    String dataUrl = "data:" + mimeType + ";base64," + base64Image;
+                    userInfo.setProfileImage(dataUrl);
+                    log.info("프로필 이미지를 Base64로 인코딩 완료: {}", userInfo.getProfileImage().substring(0, 50) + "...");
+                } else {
+                    log.warn("프로필 이미지 파일을 찾을 수 없음: {}", userInfo.getProfileImage());
+                    // 파일이 없어도 null로 설정하지 않고 기존 파일명 유지 (프론트엔드에서 처리)
+                    log.info("프로필 이미지 파일이 존재하지 않지만 기존 파일명 유지: {}", userInfo.getProfileImage());
+                }
+            } catch (Exception e) {
+                log.error("프로필 이미지 Base64 인코딩 중 오류 발생: {}", e.getMessage());
+                // 오류가 발생해도 null로 설정하지 않고 기존 파일명 유지
+                log.info("프로필 이미지 인코딩 오류 발생했지만 기존 파일명 유지: {}", userInfo.getProfileImage());
+            }
+        } else {
+            log.info("사용자에게 프로필 이미지가 설정되지 않음: userId={}", userId);
+        }
+        
+        log.info("최종 응답 - profileImage: {}", userInfo.getProfileImage());
         return ResponseEntity.ok(userInfo);
     }
 
     /**
      * 마이페이지 사용자 정보 수정 API (/user/info)
      */
-    @PutMapping("user/info")
-    public ResponseEntity<?> updateUserInfo(@RequestBody UserInfoResponse req, Authentication authentication) {
+    @PutMapping(value = "user/info", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE, MediaType.APPLICATION_JSON_VALUE})
+    public ResponseEntity<?> updateUserInfo(
+            @RequestParam(name = "profileImage", required = false) MultipartFile profileImage,
+            @RequestParam(name = "userName", required = false) String userName,
+            @RequestParam(name = "email", required = false) String email,
+            @RequestParam(name = "phone", required = false) String phone,
+            @RequestParam(name = "currentPassword", required = false) String currentPassword,
+            @RequestParam(name = "newPassword", required = false) String newPassword,
+            @RequestParam(name = "confirmPassword", required = false) String confirmPassword,
+            Authentication authentication) {
         String userId = authentication.getName();
 
         try {
             User beforeUser = userService.findByUserId(userId);
+            if (beforeUser == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("사용자를 찾을 수 없습니다.");
+            }
+            
+            // 프로필 이미지 업로드 처리
+            String profileImagePath = null;
+            if (profileImage != null && !profileImage.isEmpty()) {
+                String savePath = uploadDir + "/photo";
+                File directory = new File(savePath);
+                if (!directory.exists()) {
+                    directory.mkdirs();
+                }
+                
+                String fileName = profileImage.getOriginalFilename();
+                String renameFileName = userId + "_" + fileName;
+                
+                try {
+                    profileImage.transferTo(new File(savePath, renameFileName));
+                    profileImagePath = renameFileName;
+                    log.info("프로필 이미지 업로드 성공: {}", renameFileName);
+                } catch (Exception e) {
+                    log.error("프로필 이미지 업로드 실패", e);
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("프로필 이미지 업로드에 실패했습니다.");
+                }
+            }
+
+            // UserInfoResponse 객체 생성 - NULL 값 처리 개선
+            UserInfoResponse req = new UserInfoResponse();
+            
+            // userName이 NULL이면 기존 값 유지, 아니면 새 값 사용
+            req.setUserName(userName != null && !userName.trim().isEmpty() ? userName : beforeUser.getUserName());
+            
+            // email이 NULL이면 기존 값 유지, 아니면 새 값 사용
+            req.setEmail(email != null && !email.trim().isEmpty() ? email : beforeUser.getEmail());
+            
+            // phone이 NULL이면 기존 값 유지, 아니면 새 값 사용
+            req.setPhone(phone != null && !phone.trim().isEmpty() ? phone : beforeUser.getPhone());
+            
+            req.setCurrentPassword(currentPassword);
+            req.setNewPassword(newPassword);
+            req.setConfirmPassword(confirmPassword);
+            
+            // 프로필 이미지가 업로드된 경우에만 설정
+            if (profileImagePath != null) {
+                req.setProfileImage(profileImagePath);
+            }
+
+            log.info("업데이트 요청 데이터: userName={}, email={}, phone={}", 
+                    req.getUserName(), req.getEmail(), req.getPhone());
 
             boolean result = userService.updateUserInfo(userId, req);
             if (result) {
@@ -121,6 +221,8 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("서버 오류가 발생했습니다.");
         }
     }
+
+
 
     /**
      * 비밀번호 확인 API (회원 탈퇴용)
@@ -208,66 +310,82 @@ public class UserController {
     // 비밀번호(패스워드) 암호화 처리 기능 추가
     @PostMapping("user/signup")
     public ResponseEntity userInsertMethod(
-            @ModelAttribute User user,
-            @RequestParam(name="profileImage", required = false) MultipartFile ufile) {
-        log.info("/user/signup : " + user);
-
-        // 패스워드 암호화 처리
-//			String encodePwd = bcryptPasswordEncoder.encode(member.getUserPwd());
-//			member.setUserPwd(encodePwd);
-        user.setUserPwd(bcryptPasswordEncoder.encode(user.getUserPwd()));
-        log.info("after encode : " + user.getUserPwd() + ", length : " + user.getUserPwd().length());
-
-        // 회원가입시 사진 파일첨부가 있을 경우, 저장 폴더 경로 지정 -----------------------------------
-        String savePath = uploadDir + "/photo";
-        log.info("savePath : " + savePath);
-
-        File directory = new File(savePath);
-        if(!directory.exists()){
-            directory.mkdirs();
-        }
-
-        // 사진 첨부파일이 있다면
-        if (ufile != null && !ufile.isEmpty()) {
-            // 전송온 파일 이름 추출함
-            String fileName = ufile.getOriginalFilename();
-            // 여러 회원이 업로드한 사진파일명이 중복될 경우를 대비해서 저장파일명 이름바꾸기함
-            // 바꿀 파일이름은 개발자가 정함
-            // userId 가 기본키이므로 중복이 안됨 => userId_filename 저장형태로 정해봄
-            String renameFileName = user.getUserId() + "_" + fileName;
-
-            // 저장 폴더에 저장 처리
-            if (fileName != null && fileName.length() > 0) {
-                try {
-                    // mfile.transferTo(new File(savePath + "\\" + fileName));
-                    // 저장시 바뀐 이름으로 저장 처리함
-                    ufile.transferTo(new File(savePath, renameFileName));
-                } catch (Exception e) {
-                    // 첨부파일 저장시 에러 발생
-                    e.printStackTrace();
-                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-                }
+            @RequestParam(value = "userId", required = false) String userId,
+            @RequestParam(value = "userName", required = false) String userName,
+            @RequestParam(value = "phone", required = false) String phone,
+            @RequestParam(value = "userPwd", required = false) String userPwd,
+            @RequestParam(value = "email", required = false) String email,
+            @RequestParam(name="profileImage", required = false) MultipartFile ufile,
+            @RequestBody(required = false) User jsonUser) {
+        
+        try {
+            // JSON으로 받은 경우와 FormData로 받은 경우 모두 처리
+            User user;
+            if (jsonUser != null) {
+                // JSON 방식으로 받은 경우
+                user = jsonUser;
+                log.info("JSON 방식 회원가입 요청: {}", user);
+            } else {
+                // FormData 방식으로 받은 경우
+                user = User.builder()
+                        .userId(userId)
+                        .userName(userName)
+                        .phone(phone)
+                        .userPwd(userPwd)
+                        .email(email)
+                        .build();
+                log.info("FormData 방식 회원가입 요청: {}", user);
             }
 
-            // 파일 업로드 정상 처리되었다면
-            // user.setProfileImage(fileName); //db 저장시에는 원래 이름으로 기록함
-            user.setProfileImage(renameFileName); // db 저장시에는 변경된 이름으로 기록함
-        } // 첨부파일이 있을 때
+            // 패스워드 암호화 처리
+            user.setUserPwd(bcryptPasswordEncoder.encode(user.getUserPwd()));
+            log.info("after encode : " + user.getUserPwd() + ", length : " + user.getUserPwd().length());
 
-        //가입정보 추가 입력 처리
-        user.setStatus(1);
-        user.setAdminYn("N");
-        log.info("userInsertMethod : " + user);
+            // 회원가입시 사진 파일첨부가 있을 경우, 저장 폴더 경로 지정 -----------------------------------
+            String savePath = uploadDir + "/photo";
+            log.info("savePath : " + savePath);
 
-        try {
+            File directory = new File(savePath);
+            if(!directory.exists()){
+                directory.mkdirs();
+            }
+
+            // 사진 첨부파일이 있다면
+            if (ufile != null && !ufile.isEmpty()) {
+                // 전송온 파일 이름 추출함
+                String fileName = ufile.getOriginalFilename();
+                // 여러 회원이 업로드한 사진파일명이 중복될 경우를 대비해서 저장파일명 이름바꾸기함
+                // 바꿀 파일이름은 개발자가 정함
+                // userId 가 기본키이므로 중복이 안됨 => userId_filename 저장형태로 정해봄
+                String renameFileName = user.getUserId() + "_" + fileName;
+
+                if (fileName != null && fileName.length() > 0) {
+                    try {
+                        // 저장시 바뀐 이름으로 저장 처리함
+                        ufile.transferTo(new File(savePath, renameFileName));
+                        // 파일 업로드 정상 처리되었다면
+                        user.setProfileImage(renameFileName); // db 저장시에는 변경된 이름으로 기록함
+                        log.info("프로필 이미지 업로드 성공: {}", renameFileName);
+                    } catch (Exception e) {
+                        // 첨부파일 저장시 에러 발생
+                        log.error("프로필 이미지 업로드 실패", e);
+                        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("프로필 이미지 업로드에 실패했습니다.");
+                    }
+                }
+            } // 첨부파일이 있을 때
+
+            //가입정보 추가 입력 처리
+            user.setStatus(1);
+            user.setAdminYn("N");
+            log.info("userInsertMethod : " + user);
+
             userService.insertUser(user);
             return ResponseEntity.status(HttpStatus.OK).build();
+            
         } catch (Exception e) {
             log.error("회원가입 오류", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("회원가입 실패");
         }
-
-
     }
 
     /**
@@ -275,48 +393,63 @@ public class UserController {
      */
     @PostMapping("api/face-signup")
     public ResponseEntity<?> userInsertWithFaceMethod(
-            @ModelAttribute User user,
+            @RequestParam("userId") String userId,
+            @RequestParam("userName") String userName,
+            @RequestParam("phone") String phone,
+            @RequestParam("userPwd") String userPwd,
+            @RequestParam(value = "email", required = false) String email,
             @RequestParam(name="profileImage", required = false) MultipartFile ufile,
             @RequestParam(name="faceImageData", required = false) String faceImageData,
             @RequestParam(name="faceName", required = false) String faceName) {
-        log.info("/api/face-signup : " + user);
+        
+        try {
+            // User 객체 생성
+            User user = User.builder()
+                    .userId(userId)
+                    .userName(userName)
+                    .phone(phone)
+                    .userPwd(userPwd)
+                    .email(email)
+                    .build();
 
-        // 패스워드 암호화 처리
-        user.setUserPwd(bcryptPasswordEncoder.encode(user.getUserPwd()));
-        log.info("after encode : " + user.getUserPwd() + ", length : " + user.getUserPwd().length());
+            log.info("/api/face-signup : " + user);
 
-        // 회원가입시 사진 파일첨부가 있을 경우, 저장 폴더 경로 지정
-        String savePath = uploadDir + "/photo";
-        log.info("savePath : " + savePath);
+            // 패스워드 암호화 처리
+            user.setUserPwd(bcryptPasswordEncoder.encode(user.getUserPwd()));
+            log.info("after encode : " + user.getUserPwd() + ", length : " + user.getUserPwd().length());
 
-        File directory = new File(savePath);
-        if(!directory.exists()){
-            directory.mkdirs();
-        }
+            // 회원가입시 사진 파일첨부가 있을 경우, 저장 폴더 경로 지정
+            String savePath = uploadDir + "/photo";
+            log.info("savePath : " + savePath);
 
-        // 사진 첨부파일이 있다면
-        if (ufile != null && !ufile.isEmpty()) {
-            String fileName = ufile.getOriginalFilename();
-            String renameFileName = user.getUserId() + "_" + fileName;
+            File directory = new File(savePath);
+            if(!directory.exists()){
+                directory.mkdirs();
+            }
 
-            if (fileName != null && fileName.length() > 0) {
-                try {
-                    ufile.transferTo(new File(savePath, renameFileName));
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            // 사진 첨부파일이 있다면
+            if (ufile != null && !ufile.isEmpty()) {
+                String fileName = ufile.getOriginalFilename();
+                String renameFileName = user.getUserId() + "_" + fileName;
+
+                if (fileName != null && fileName.length() > 0) {
+                    try {
+                        ufile.transferTo(new File(savePath, renameFileName));
+                        user.setProfileImage(renameFileName);
+                        log.info("프로필 이미지 업로드 성공: {}", renameFileName);
+                    } catch (Exception e) {
+                        log.error("프로필 이미지 업로드 실패", e);
+                        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("프로필 이미지 업로드에 실패했습니다.");
+                    }
                 }
             }
-            user.setProfileImage(renameFileName);
-        }
 
-        //가입정보 추가 입력 처리
-        user.setStatus(1);
-        user.setAdminYn("N");
-        user.setFaceLoginEnabled(false); // 기본값은 비활성화
-        log.info("userInsertWithFaceMethod : " + user);
+            //가입정보 추가 입력 처리
+            user.setStatus(1);
+            user.setAdminYn("N");
+            user.setFaceLoginEnabled(false); // 기본값은 비활성화
+            log.info("userInsertWithFaceMethod : " + user);
 
-        try {
             User savedUser = userService.insertUser(user);
 
             // 페이스 등록이 요청된 경우
@@ -327,6 +460,7 @@ public class UserController {
             }
 
             return ResponseEntity.status(HttpStatus.OK).build();
+            
         } catch (Exception e) {
             log.error("페이스 등록 포함 회원가입 오류", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("회원가입 실패");

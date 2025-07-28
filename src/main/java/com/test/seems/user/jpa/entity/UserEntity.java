@@ -21,7 +21,7 @@ public class UserEntity {
     @Column(name = "USER_ID", nullable = false, length = 255)
     private String userId;
 
-    @Column(name = "PHONE", nullable = false, length = 100)
+    @Column(name = "PHONE", length = 100)
     private String phone;
 
     @Column(name = "USER_PWD", length = 255)
@@ -30,7 +30,7 @@ public class UserEntity {
     @Column(name = "USERNAME", nullable = false, length = 50)
     private String userName;
 
-    @Column(name = "PROFILE_IMAGE")
+    @Column(name = "PROFILE_IMAGE", length = 4000)
     private String profileImage;
 
     @Column(name = "EMAIL", length = 100)

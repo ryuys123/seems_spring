@@ -10,8 +10,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import net.nurigo.sdk.NurigoApp;
 import net.nurigo.sdk.message.model.Message;
 import net.nurigo.sdk.message.service.DefaultMessageService;
@@ -27,6 +29,11 @@ public class UserVerificationService {
 
     // 인증번호 임시 저장소 (실제 서비스는 Redis 사용 권장)
     private final Map<String, String> verificationCodeStore = new ConcurrentHashMap<>();
+    // 인증번호 발송 시간 저장소 (유효시간 검증용)
+    private final Map<String, Long> verificationTimeStore = new ConcurrentHashMap<>();
+    
+    // 인증번호 유효시간 (3분)
+    private static final long VERIFICATION_VALID_TIME = 3 * 60 * 1000; // 3분을 밀리초로
 
     private DefaultMessageService messageService;
 
@@ -49,6 +56,9 @@ public class UserVerificationService {
     // 본인인증 통합 처리
     public UserVerificationResponse processVerification(UserVerificationRequest request) {
         try {
+            log.info("본인인증 요청 데이터 - type: {}, phone: {}, name: {}, userId: {}", 
+                    request.getVerificationType(), request.getPhone(), request.getName(), request.getUserId());
+            
             switch (request.getVerificationType()) {
                 case "SMS_SEND":
                     return sendSmsVerification(request);
@@ -76,31 +86,117 @@ public class UserVerificationService {
     // 문자 인증번호 발송
     private UserVerificationResponse sendSmsVerification(UserVerificationRequest request) {
         String code = generateRandomCode();
+        long currentTime = System.currentTimeMillis();
+        
+        // 인증번호와 발송시간 저장
         verificationCodeStore.put(request.getPhone(), code);
+        verificationTimeStore.put(request.getPhone(), currentTime);
 
         boolean sent = sendSms(request.getPhone(), code);
 
         UserVerificationResponse response = new UserVerificationResponse();
         response.setSuccess(sent);
         response.setMessage(sent ? "인증번호가 발송되었습니다." : "문자 발송에 실패했습니다.");
+        
+        log.info("인증번호 발송 - 전화번호: {}, 유효시간: 3분", request.getPhone());
         return response;
     }
 
     // 문자 인증번호 검증
     private UserVerificationResponse verifySmsCode(UserVerificationRequest request) {
         String storedCode = verificationCodeStore.get(request.getPhone());
-        boolean success = storedCode != null && storedCode.equals(request.getVerificationCode());
-
+        Long sentTime = verificationTimeStore.get(request.getPhone());
+        
         UserVerificationResponse response = new UserVerificationResponse();
-        response.setSuccess(success);
-        response.setMessage(success ? "인증이 완료되었습니다." : "인증번호가 일치하지 않습니다.");
+        
+        // 인증번호가 없는 경우
+        if (storedCode == null || sentTime == null) {
+            response.setSuccess(false);
+            response.setMessage("발송된 인증번호가 없습니다. 다시 요청해주세요.");
+            return response;
+        }
+        
+        // 유효시간 확인 (3분)
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - sentTime > VERIFICATION_VALID_TIME) {
+            // 만료된 인증번호 삭제
+            verificationCodeStore.remove(request.getPhone());
+            verificationTimeStore.remove(request.getPhone());
+            
+            response.setSuccess(false);
+            response.setMessage("인증번호가 만료되었습니다. 다시 요청해주세요.");
+            log.info("인증번호 만료 - 전화번호: {}, 경과시간: {}초", 
+                request.getPhone(), (currentTime - sentTime) / 1000);
+            return response;
+        }
+        
+        // 인증번호 일치 확인
+        boolean success = storedCode.equals(request.getVerificationCode());
+        
+        if (success) {
+            // 인증 성공시 저장된 인증번호 삭제 (재사용 방지)
+            verificationCodeStore.remove(request.getPhone());
+            verificationTimeStore.remove(request.getPhone());
+            
+            response.setSuccess(true);
+            response.setMessage("인증이 완료되었습니다.");
+            log.info("인증번호 검증 성공 - 전화번호: {}", request.getPhone());
+        } else {
+            response.setSuccess(false);
+            response.setMessage("인증번호가 일치하지 않습니다.");
+            log.info("인증번호 검증 실패 - 전화번호: {}, 입력값: {}", 
+                request.getPhone(), request.getVerificationCode());
+        }
+        
         return response;
     }
 
     // 아이디 찾기
     private UserVerificationResponse findUserId(UserVerificationRequest request) {
-        // 이름과 휴대폰번호로 사용자 조회
+        log.info("아이디 찾기 요청 - name: '{}', phone: '{}'", request.getName(), request.getPhone());
+        
+        // DB에 저장된 전체 사용자 정보 로깅 (디버깅용)
+        List<UserEntity> allUsers = userRepository.findAll();
+        log.info("DB 전체 사용자 수: {}", allUsers.size());
+        log.info("DB 전체 사용자 목록:");
+        for (UserEntity u : allUsers) {
+            log.info("  - userId: {}, userName: '{}', phone: '{}'", u.getUserId(), u.getUserName(), u.getPhone());
+        }
+        
+        // 전화번호 정규화 (하이픈 제거 + 공백 제거)
+        String normalizedPhone = request.getPhone() != null ? request.getPhone().replaceAll("-", "").trim() : null;
+        log.info("정규화된 전화번호: '{}'", normalizedPhone);
+        
+        // 1. 이름과 휴대폰번호로 사용자 조회 (원본 전화번호로 먼저 시도)
         UserEntity user = userRepository.findByUserNameAndPhone(request.getName(), request.getPhone());
+        
+        // 2. 원본 전화번호로 찾지 못한 경우 정규화된 전화번호로 시도
+        if (user == null && normalizedPhone != null && !normalizedPhone.equals(request.getPhone())) {
+            log.info("원본 전화번호로 찾지 못함, 정규화된 전화번호로 재시도");
+            user = userRepository.findByUserNameAndPhone(request.getName(), normalizedPhone);
+        }
+        
+        // 3. 여전히 찾지 못한 경우 전화번호만으로 조회 (디버깅용)
+        if (user == null) {
+            log.info("이름과 전화번호로 찾지 못함, 전화번호만으로 조회 시도");
+            log.info("요청한 전화번호: '{}'", request.getPhone());
+            log.info("정규화된 전화번호: '{}'", normalizedPhone);
+            
+            // 전화번호만으로 조회하는 메소드가 없다면 직접 구현
+            List<UserEntity> usersByPhone = userRepository.findAll().stream()
+                    .filter(u -> (u.getPhone() != null && u.getPhone().trim().equals(request.getPhone().trim())) ||
+                                (normalizedPhone != null && u.getPhone() != null && u.getPhone().trim().equals(normalizedPhone)))
+                    .collect(Collectors.toList());
+            
+            log.info("전화번호로 찾은 사용자들: {}", usersByPhone.stream().map(u -> u.getUserId() + "(" + u.getUserName() + ")").collect(Collectors.toList()));
+            
+            if (!usersByPhone.isEmpty()) {
+                user = usersByPhone.get(0); // 첫 번째 사용자 선택
+                log.info("전화번호로 사용자 찾음: {}", user.getUserId());
+            }
+        }
+        
+        log.info("최종 DB 조회 결과 - user: {}", user != null ? user.getUserId() : "null");
 
         UserVerificationResponse response = new UserVerificationResponse();
         if (user == null) {
@@ -150,7 +246,7 @@ public class UserVerificationService {
             Message message = new Message();
             message.setFrom(sender);
             message.setTo(phone);
-            message.setText("[SEEMS] 인증번호: " + code);
+            message.setText("SEEMS 인증번호: " + code + " (3분 유효, 타인 공유 금지)");
 
             messageService.send(message);
             return true;

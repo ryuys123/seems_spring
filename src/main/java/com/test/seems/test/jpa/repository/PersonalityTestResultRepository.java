@@ -9,4 +9,5 @@ import java.util.Optional;
 @Repository
 public interface PersonalityTestResultRepository extends JpaRepository<PersonalityTestResultEntity, Long> {
     Optional<PersonalityTestResultEntity> findTopByUserIdOrderByCreatedAtDesc(String userId);
+    boolean existsByUserId(String userId);
 }

@@ -20,8 +20,11 @@ public class UserVerificationController {
     @PostMapping
     public ResponseEntity<UserVerificationResponse> verification(@RequestBody UserVerificationRequest request) {
         log.info("본인인증 요청: type={}, phone={}", request.getVerificationType(), request.getPhone());
+        log.info("전체 요청 데이터: {}", request);
 
         UserVerificationResponse response = userVerificationService.processVerification(request);
+        
+        log.info("응답 데이터: {}", response);
 
         return ResponseEntity.ok(response);
     }

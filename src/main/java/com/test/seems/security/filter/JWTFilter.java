@@ -94,6 +94,9 @@ public class JWTFilter extends OncePerRequestFilter {
         if (url.startsWith("/seems/user/idchk")) {
             return true;
         }
+        if (url.startsWith("/seems/api/user/verification")) {
+            return true;
+        }
         if (url.startsWith("/seems/login")) {
             return true;
         }
@@ -154,6 +157,9 @@ public class JWTFilter extends OncePerRequestFilter {
         if (url.startsWith("/auth/")) {
             return true;
         }
+        if (url.startsWith("/oauth2/") || url.startsWith("/seems/oauth2/")) {
+            return true;
+        }
         if (url.startsWith("/css/")) {
             return true;
         }
@@ -164,6 +170,15 @@ public class JWTFilter extends OncePerRequestFilter {
             return true;
         }
         if (url.startsWith("/api/emotions")) {
+            return true;
+        }
+        if (url.startsWith("/seems/auth/")) {
+            return true;
+        }
+        if (url.startsWith("/seems/api/reissue")) {
+            return true;
+        }
+        if (url.startsWith("/seems/reissue")) {
             return true;
         }
         if (url.startsWith("/logout")) {
@@ -186,6 +201,7 @@ public class JWTFilter extends OncePerRequestFilter {
         }
 
         log.info("Token check target URL: {}", requestURI);
+        log.info("isExcludedUrl result: {}", isExcludedUrl(requestURI));
 
         String authorizationHeader = request.getHeader("Authorization");
 
@@ -198,6 +214,12 @@ public class JWTFilter extends OncePerRequestFilter {
         }
 
         String accessToken = authorizationHeader.substring("Bearer ".length());
+        if (accessToken == null || accessToken.trim().isEmpty()) {
+            log.warn("Access Token is missing after Bearer prefix.");
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.getWriter().write("{\"error\":\"Missing Access Token\"}");
+            return;
+        }
 
         // 2. Access Token 만료 여부 확인
         if (jwtUtil.isTokenExpired(accessToken)) {

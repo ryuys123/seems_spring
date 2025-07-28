@@ -1,17 +1,8 @@
 package com.test.seems.test.model.service;
 
-import com.test.seems.test.jpa.entity.PsychologicalScaleAnswer;
-import com.test.seems.test.jpa.entity.PsychologicalScaleResult;
-import com.test.seems.test.jpa.entity.PsychologicalTestResultEntity;
-import com.test.seems.test.jpa.entity.PsychologyEntity;
-import com.test.seems.test.jpa.entity.TestQuestionEntity;
+import com.test.seems.test.jpa.entity.*;
 import com.test.seems.test.jpa.repository.*;
-import com.test.seems.test.model.dto.PsychologicalAnswerRequest;
-import com.test.seems.test.model.dto.PsychologicalScaleAnswerRequest;
-import com.test.seems.test.model.dto.PsychologicalTestResultResponse;
-import com.test.seems.test.model.dto.ScaleTestSubmissionDto;
-import com.test.seems.test.model.dto.ScaleAnswerDto;
-import com.test.seems.test.model.dto.TestQuestion;
+import com.test.seems.test.model.dto.*;
 import com.test.seems.user.exception.UserNotFoundException;
 import com.test.seems.user.jpa.entity.UserEntity;
 import com.test.seems.user.jpa.repository.UserRepository;
@@ -223,37 +214,37 @@ public class PsychologyService {
         if ("DEPRESSION_SCALE".equalsIgnoreCase(submissionDto.getTestCategory())) {
             if (totalScore <= 4) {
                 interpretation = "현재 우울감 수준이 정상 범위입니다. 건강한 상태를 유지하고 계십니다.";
-                riskLevel = "NORMAL";
+                riskLevel = "양호";
                 suggestions = "현재의 긍정적인 상태를 잘 유지하세요.";
             } else if (totalScore <= 9) {
                 interpretation = "경미한 우울감이 감지됩니다. 가벼운 스트레스나 기분 변화일 수 있습니다.";
-                riskLevel = "LOW_RISK";
+                riskLevel = "가벼운 수준";
                 suggestions = "휴식, 취미 활동, 가벼운 운동 등을 통해 기분 전환을 시도해보세요.";
             } else if (totalScore <= 14) {
                 interpretation = "중간 정도의 우울감이 나타납니다. 일상생활에 영향을 줄 수 있습니다.";
-                riskLevel = "MEDIUM_RISK";
+                riskLevel = "중간 수준";
                 suggestions = "심리 상담 전문가와 이야기를 나눠보거나, 규칙적인 생활과 충분한 수면을 취하는 것이 중요합니다.";
             } else if (totalScore <= 19) {
                 interpretation = "중증도의 우울감이 감지됩니다. 전문가의 도움이 필요할 수 있습니다.";
-                riskLevel = "HIGH_RISK";
+                riskLevel = "다소 심한 수준";
                 suggestions = "반드시 정신건강의학과 전문의 또는 심리 상담사와 상담을 진행해 보세요. 주변의 지지체계를 활용하는 것도 좋습니다.";
             } else {
                 interpretation = "심한 우울감이 나타나고 있습니다. 즉각적인 전문가의 도움이 필요합니다.";
-                riskLevel = "CRITICAL_RISK";
+                riskLevel = "심각한 수준";
                 suggestions = "지체하지 말고 즉시 정신건강의학과 전문의와 상담을 시작하고 필요한 치료를 받으세요. 가족이나 친구에게 도움을 요청하세요.";
             }
         } else if ("STRESS_SCALE".equalsIgnoreCase(submissionDto.getTestCategory())) {
             if (totalScore <= 13) {
                 interpretation = "스트레스 수준이 낮은 편입니다. 스트레스 관리를 잘 하고 계십니다.";
-                riskLevel = "NORMAL";
+                riskLevel = "정상";
                 suggestions = "현재의 긍정적인 상태를 잘 유지하고, 스트레스 해소 활동을 꾸준히 해보세요.";
             } else if (totalScore <= 26) {
                 interpretation = "중간 정도의 스트레스 수준을 보입니다. 일상에서 스트레스 요인을 관리할 필요가 있습니다.";
-                riskLevel = "CAUTION";
+                riskLevel = "약간의 스트레스";
                 suggestions = "스트레스 원인을 파악하고, 명상, 취미, 휴식 등 자신에게 맞는 해소법을 찾아 실천해보세요.";
             } else {
                 interpretation = "높은 수준의 스트레스를 경험하고 있습니다. 적극적인 대처가 필요합니다.";
-                riskLevel = "HIGH_RISK";
+                riskLevel = "높은 스트레스";
                 suggestions = "스트레스로 인해 어려움을 겪고 있다면, 전문가(심리 상담사, 정신과 의사)와 상담을 고려해보세요. 규칙적인 생활과 충분한 수면도 중요합니다.";
             }
         } else {

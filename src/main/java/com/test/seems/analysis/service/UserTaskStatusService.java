@@ -2,30 +2,27 @@ package com.test.seems.analysis.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.test.seems.analysis.jpa.UserAnalysisSummaryRepository;
+import com.test.seems.analysis.jpa.entity.UserAnalysisSummaryEntity;
+import com.test.seems.analysis.jpa.repository.UserAnalysisSummaryRepository;
 import com.test.seems.analysis.model.UserAnalysisSummaryDto;
-import com.test.seems.analysis.model.UserAnalysisSummaryEntity;
 import com.test.seems.analysis.model.UserTaskStatus;
 import com.test.seems.counseling.jpa.entity.CounselingAnalysisSummaryEntity;
 import com.test.seems.counseling.jpa.repository.CounselingAnalysisSummaryRepository;
+import com.test.seems.emotion.jpa.entity.Emotion;
+import com.test.seems.emotion.jpa.repository.EmotionRepository;
 import com.test.seems.test.jpa.entity.PersonalityTestResultEntity;
 import com.test.seems.test.jpa.entity.PsychologicalTestResultEntity;
-import com.test.seems.test.model.entity.ScaleAnalysisResultEntity;
+import com.test.seems.test.jpa.entity.ScaleAnalysisResultEntity;
 import com.test.seems.test.jpa.repository.PersonalityTestResultRepository;
 import com.test.seems.test.jpa.repository.PsychologicalTestResultRepository;
 import com.test.seems.test.jpa.repository.ScaleAnalysisResultRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.ArrayList; // Added import
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List; // Added import
-import java.util.Map;
-import java.util.Optional;
-import lombok.extern.slf4j.Slf4j;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -44,14 +41,28 @@ public class UserTaskStatusService {
     private ScaleAnalysisResultRepository scaleAnalysisResultRepository;
 
     @Autowired
+    private EmotionRepository emotionRepository;
+
+    @Autowired
     private UserAnalysisSummaryRepository userAnalysisSummaryRepository;
 
     private final RestTemplate restTemplate;
+    // ObjectMapper는 final 필드로 초기화하는 것이 일반적입니다.
+    private final ObjectMapper objectMapper; // ✨ final로 선언하고 생성자에서 초기화하도록 변경 (더 좋은 관례)
 
-    public UserTaskStatusService(RestTemplate restTemplate) {
+
+    // 생성자를 통해 RestTemplate과 ObjectMapper를 주입받습니다.
+    public UserTaskStatusService(RestTemplate restTemplate, ObjectMapper objectMapper) {
         this.restTemplate = restTemplate;
+        this.objectMapper = objectMapper;
     }
 
+    /**
+     * 특정 사용자의 심리 검사 및 상담 완료 상태를 조회합니다.
+     *
+     * @param userId 사용자 ID
+     * @return UserTaskStatus 객체 (각 과제 완료 여부 포함)
+     */
     public UserTaskStatus getUserTaskStatus(String userId) {
         log.info("getUserTaskStatus 호출됨. userId: {}", userId);
         UserTaskStatus status = new UserTaskStatus(userId);
@@ -88,7 +99,7 @@ public class UserTaskStatusService {
             log.info("이미지 심리 검사 결과 없음.");
         }
 
-        Optional<ScaleAnalysisResultEntity> depressionResultOpt = scaleAnalysisResultRepository.findTopByUserIdAndTestCategoryOrderByCreatedAtDesc(userId, "DEPRESSION_SCALE");
+        Optional<ScaleAnalysisResultEntity> depressionResultOpt = scaleAnalysisResultRepository.findTopByUser_UserIdAndTestCategoryOrderByCreatedAtDesc(userId, "DEPRESSION_SCALE");
         if (depressionResultOpt.isPresent()) {
             status.setDepressionTestCompleted(1);
             log.info("우울증 검사 결과 존재: {}", depressionResultOpt.get().getResultId());
@@ -96,7 +107,7 @@ public class UserTaskStatusService {
             log.info("우울증 검사 결과 없음.");
         }
 
-        Optional<ScaleAnalysisResultEntity> stressResultOpt = scaleAnalysisResultRepository.findTopByUserIdAndTestCategoryOrderByCreatedAtDesc(userId, "STRESS_SCALE");
+        Optional<ScaleAnalysisResultEntity> stressResultOpt = scaleAnalysisResultRepository.findTopByUser_UserIdAndTestCategoryOrderByCreatedAtDesc(userId, "STRESS_SCALE");
         if (stressResultOpt.isPresent()) {
             status.setStressTestCompleted(1);
             log.info("스트레스 검사 결과 존재: {}", stressResultOpt.get().getResultId());
@@ -105,22 +116,34 @@ public class UserTaskStatusService {
         }
 
         log.info("최종 UserTaskStatus: 상담={}, 성격={}, 이미지={}, 우울증={}, 스트레스={}",
-                 status.getCounselingCompleted(), status.getPersonalityTestCompleted(),
-                 status.getPsychImageTestCompleted(), status.getDepressionTestCompleted(),
-                 status.getStressTestCompleted());
+                status.getCounselingCompleted(), status.getPersonalityTestCompleted(),
+                status.getPsychImageTestCompleted(), status.getDepressionTestCompleted(),
+                status.getStressTestCompleted());
 
         return status;
     }
 
+    /**
+     * 모든 필수 과제가 완료되었는지 확인합니다.
+     *
+     * @param userId 사용자 ID
+     * @return 모든 과제 완료 시 true, 아니면 false
+     */
     public boolean areAllTasksCompleted(String userId) {
         UserTaskStatus status = getUserTaskStatus(userId);
         return status.getCounselingCompleted() == 1 &&
-               status.getPersonalityTestCompleted() == 1 &&
-               status.getPsychImageTestCompleted() == 1 &&
-               status.getDepressionTestCompleted() == 1 &&
-               status.getStressTestCompleted() == 1;
+                status.getPersonalityTestCompleted() == 1 &&
+                status.getPsychImageTestCompleted() == 1 &&
+                status.getDepressionTestCompleted() == 1 &&
+                status.getStressTestCompleted() == 1;
     }
 
+    /**
+     * 5가지 심리 검사 및 상담 결과를 통합하여 AI 분석을 수행하고 DB에 저장합니다.
+     *
+     * @param userId 통합 분석을 수행할 사용자 ID
+     * @return 통합 분석 결과 요약 문자열 또는 오류 메시지
+     */
     @Transactional
     public String performIntegratedAnalysis(String userId) {
         log.info("DEBUG: performIntegratedAnalysis 호출됨. userId: {}", userId);
@@ -134,17 +157,17 @@ public class UserTaskStatusService {
         log.info("DEBUG: personalityResultOpt.isPresent(): {}", personalityResultOpt.isPresent());
         Optional<PsychologicalTestResultEntity> psychImageResultOpt = psychologicalTestResultRepository.findTopByUserIdOrderByCreatedAtDesc(userId);
         log.info("DEBUG: psychImageResultOpt.isPresent(): {}", psychImageResultOpt.isPresent());
-        Optional<ScaleAnalysisResultEntity> depressionResultOpt = scaleAnalysisResultRepository.findTopByUserIdAndTestCategoryOrderByCreatedAtDesc(userId, "DEPRESSION_SCALE");
+        Optional<ScaleAnalysisResultEntity> depressionResultOpt = scaleAnalysisResultRepository.findTopByUser_UserIdAndTestCategoryOrderByCreatedAtDesc(userId, "DEPRESSION_SCALE");
         log.info("DEBUG: depressionResultOpt.isPresent(): {}", depressionResultOpt.isPresent());
-        Optional<ScaleAnalysisResultEntity> stressResultOpt = scaleAnalysisResultRepository.findTopByUserIdAndTestCategoryOrderByCreatedAtDesc(userId, "STRESS_SCALE");
+        Optional<ScaleAnalysisResultEntity> stressResultOpt = scaleAnalysisResultRepository.findTopByUser_UserIdAndTestCategoryOrderByCreatedAtDesc(userId, "STRESS_SCALE");
         log.info("DEBUG: stressResultOpt.isPresent(): {}", stressResultOpt.isPresent());
 
         log.info("DEBUG: All Optional checks before final validation: counseling={}, personality={}, image={}, depression={}, stress={}",
-                 counselingSummaryOpt.isPresent(), personalityResultOpt.isPresent(), psychImageResultOpt.isPresent(),
-                 depressionResultOpt.isPresent(), stressResultOpt.isPresent());
+                counselingSummaryOpt.isPresent(), personalityResultOpt.isPresent(), psychImageResultOpt.isPresent(),
+                depressionResultOpt.isPresent(), stressResultOpt.isPresent());
 
         if (counselingSummaryOpt.isEmpty() || personalityResultOpt.isEmpty() || psychImageResultOpt.isEmpty() ||
-            depressionResultOpt.isEmpty() || stressResultOpt.isEmpty()) {
+                depressionResultOpt.isEmpty() || stressResultOpt.isEmpty()) {
             return "필요한 모든 분석 결과가 존재하지 않습니다. 데이터 누락.";
         }
 
@@ -155,62 +178,62 @@ public class UserTaskStatusService {
         List<Map<String, Object>> resultsList = new ArrayList<>();
 
         // 1. Counseling Summary
-        if (counselingSummaryOpt.isPresent()) {
+        counselingSummaryOpt.ifPresent(summary -> {
             Map<String, Object> counselingMap = new HashMap<>();
             counselingMap.put("latestCounselingSummary", Map.of(
-                "summaryContent", counselingSummaryOpt.get().getSummaryContent(),
-                "topic", "N/A", // Assuming topic is not directly available or needs to be derived
-                "method", "N/A", // Assuming method is not directly available or needs to be derived
-                "startTime", counselingSummaryOpt.get().getCreatedAt().toString(), // Using createdAt as start time
-                "endTime", counselingSummaryOpt.get().getCreatedAt().toString() // Using createdAt as end time
+                    "summaryContent", summary.getSummaryContent(),
+                    "topic", "N/A", // Assume N/A if not directly available or needs to be derived
+                    "method", "N/A", // Assume N/A if not directly available or needs to be derived
+                    "startTime", summary.getCreatedAt().toString(),
+                    "endTime", summary.getCreatedAt().toString()
             ));
             resultsList.add(counselingMap);
-        }
+        });
 
         // 2. Personality Test Result
-        if (personalityResultOpt.isPresent()) {
+        personalityResultOpt.ifPresent(result -> {
             Map<String, Object> personalityMap = new HashMap<>();
             personalityMap.put("latestPersonalityResult", Map.of(
-                "result", personalityResultOpt.get().getResult(),
-                "description", personalityResultOpt.get().getDescription()
+                    "result", result.getResult(),
+                    "description", result.getDescription()
             ));
             resultsList.add(personalityMap);
-        }
+        });
 
         // 3. Image Analysis Result
-        if (psychImageResultOpt.isPresent()) {
+        psychImageResultOpt.ifPresent(result -> {
             Map<String, Object> imageMap = new HashMap<>();
             imageMap.put("latestImageResult", Map.of(
-                "aiSentiment", psychImageResultOpt.get().getAiSentiment(),
-                "aiSentimentScore", psychImageResultOpt.get().getAiSentimentScore(),
-                "aiCreativityScore", psychImageResultOpt.get().getAiCreativityScore(),
-                "aiInsightSummary", psychImageResultOpt.get().getAiInsightSummary(),
-                "aiPerspectiveKeywords", psychImageResultOpt.get().getAiPerspectiveKeywords()
+                    "aiSentiment", result.getAiSentiment(),
+                    "aiSentimentScore", result.getAiSentimentScore(),
+                    "aiCreativityScore", result.getAiCreativityScore(),
+                    "aiInsightSummary", result.getAiInsightSummary(),
+                    "aiPerspectiveKeywords", result.getAiPerspectiveKeywords()
             ));
             resultsList.add(imageMap);
-        }
+        });
 
         // 4. Depression Test Result
-        if (depressionResultOpt.isPresent()) {
+        depressionResultOpt.ifPresent(result -> {
             Map<String, Object> depressionMap = new HashMap<>();
             depressionMap.put("latestDepressionResult", Map.of(
-                "totalScore", depressionResultOpt.get().getTotalScore(),
-                "interpretation", depressionResultOpt.get().getInterpretation(),
-                "riskLevel", depressionResultOpt.get().getRiskLevel()
+                    "totalScore", result.getTotalScore(),
+                    "interpretation", result.getInterpretation(),
+                    "riskLevel", result.getRiskLevel()
             ));
             resultsList.add(depressionMap);
-        }
+        });
 
         // 5. Stress Test Result
-        if (stressResultOpt.isPresent()) {
+        stressResultOpt.ifPresent(result -> {
             Map<String, Object> stressMap = new HashMap<>();
             stressMap.put("latestStressResult", Map.of(
-                "totalScore", stressResultOpt.get().getTotalScore(),
-                "interpretation", stressResultOpt.get().getInterpretation(),
-                "riskLevel", stressResultOpt.get().getRiskLevel()
+                    "totalScore", result.getTotalScore(),
+                    "interpretation", result.getInterpretation(),
+                    "riskLevel", result.getRiskLevel()
             ));
             resultsList.add(stressMap);
-        }
+        });
 
         requestData.put("results", resultsList);
 
@@ -221,10 +244,10 @@ public class UserTaskStatusService {
             log.info("DEBUG: Raw AI response from Python AI server: {}", aiResponse);
 
             // AI 응답이 JSON 문자열이므로, 이를 파싱하여 필요한 필드를 추출
-            // Python 서버에서 ensure_ascii=False로 설정했으므로, 한글이 깨지지 않고 올 것입니다.
-            Map<String, Object> parsedAiResponse = new ObjectMapper().readValue(aiResponse, new TypeReference<Map<String, Object>>() {});
+            Map<String, Object> parsedAiResponse = objectMapper.readValue(aiResponse, new TypeReference<Map<String, Object>>() {});
             log.info("DEBUG: Parsed AI response from Python AI server: {}", parsedAiResponse);
-            log.info("DEBUG: parsedAiResponse.get(\"individualResults\") is null: {}", parsedAiResponse.get("individualResults") == null);
+            // "individualResults" 필드는 Python에서 다시 넣어주므로, 여기서는 null 체크 필요 없음 (있다면 AI 로직 확인)
+            // log.info("DEBUG: parsedAiResponse.get(\"individualResults\") is null: {}", parsedAiResponse.get("individualResults") == null);
 
             UserAnalysisSummaryEntity userAnalysisSummary = userAnalysisSummaryRepository.findByUserId(userId)
                     .orElseGet(() -> {
@@ -233,18 +256,43 @@ public class UserTaskStatusService {
                         return newSummary;
                     });
 
-            userAnalysisSummary.setCounselingSummaryId(counselingSummaryOpt.get().getSummaryId());
-            userAnalysisSummary.setPersonalityResultId(personalityResultOpt.get().getPersonalityId());
-            userAnalysisSummary.setPsychoImageResultId(psychImageResultOpt.get().getResultId());
-            userAnalysisSummary.setPsychoScaleResultId(depressionResultOpt.get().getResultId());
+            // 각 검사의 ID를 UserAnalysisSummaryEntity에 저장 (Optional에서 값 가져오기)
+            counselingSummaryOpt.ifPresent(summary -> userAnalysisSummary.setCounselingSummaryId(summary.getSummaryId()));
+            personalityResultOpt.ifPresent(result -> userAnalysisSummary.setPersonalityResultId(result.getPersonalityId()));
+            psychImageResultOpt.ifPresent(result -> userAnalysisSummary.setPsychoImageResultId(result.getResultId()));
+            // 우울증 스케일 ID (stressResultOpt는 스트레스 스케일이므로, depressionResultOpt에서 가져옴)
+            depressionResultOpt.ifPresent(result -> userAnalysisSummary.setPsychoScaleResultId(result.getResultId()));
 
-            // aiResponse 대신 파싱된 객체에서 analysisComment를 가져옴
+
+            // AI 응답에서 stressScore와 depressionScore를 추출하여 저장
+            Integer stressScoreFromAi = (Integer) parsedAiResponse.get("stressScore");
+            Integer depressionScoreFromAi = (Integer) parsedAiResponse.get("depressionScore");
+
+            userAnalysisSummary.setStressScore(stressScoreFromAi); // ✨ 스트레스 점수 저장
+            userAnalysisSummary.setDepressionScore(depressionScoreFromAi); // ✨ 우울증 점수 저장
+
+            // AI 응답에서 analysisComment, dominantEmotion 가져와 저장
             userAnalysisSummary.setAnalysisComment((String) parsedAiResponse.get("aiInsightSummary"));
+            userAnalysisSummary.setDominantEmotion((String) parsedAiResponse.get("dominantEmotion"));
+
+            // dominantEmotion이 있을 때 EMOTION_ID도 저장
+            String dominantEmotion = (String) parsedAiResponse.get("dominantEmotion");
+            if (dominantEmotion != null && !dominantEmotion.isEmpty()) {
+                Emotion emotion = emotionRepository.findByEmotionName(dominantEmotion);
+                if (emotion != null) {
+                    userAnalysisSummary.setEmotionId(emotion.getEmotionId());
+                } else {
+                    userAnalysisSummary.setEmotionId(null); // 매칭되는 감정이 없으면 null
+                }
+            } else {
+                userAnalysisSummary.setEmotionId(null);
+            }
+
             userAnalysisSummary.setLastUpdated(new Date());
             userAnalysisSummary.setAnalysisCompleted(1);
 
             // individualResults를 JSON 문자열로 변환하여 저장
-            ObjectMapper objectMapper = new ObjectMapper();
+            // objectMapper는 이미 final로 선언되어 생성자에서 초기화되므로 여기서 다시 생성할 필요 없음
             String individualResultsJsonString = objectMapper.writeValueAsString(parsedAiResponse.get("individualResults"));
             log.info("DEBUG: individualResultsJsonString to be saved: {}", individualResultsJsonString);
             try {
@@ -261,11 +309,18 @@ public class UserTaskStatusService {
             return "통합 분석이 성공적으로 완료되었습니다. 결과: " + parsedAiResponse.get("aiInsightSummary");
 
         } catch (Exception e) {
-            log.error("통합 분석 중 오류 발생: {}", e.getMessage(), e); // 상세한 예외 로깅
+            log.error("통합 분석 중 오류 발생: {}", e.getMessage(), e);
             return "통합 분석 중 오류가 발생했습니다: " + e.getMessage();
         }
     }
 
+    /**
+     * 사용자 종합 분석 결과를 조회합니다.
+     * DB에 저장된 UserAnalysisSummaryEntity를 UserAnalysisSummaryDto로 변환하여 반환합니다.
+     *
+     * @param userId 사용자 ID
+     * @return UserAnalysisSummaryDto 또는 null
+     */
     public UserAnalysisSummaryDto getFinalAnalysisResult(String userId) {
         UserAnalysisSummaryEntity entity = userAnalysisSummaryRepository.findByUserId(userId).orElse(null);
         if (entity == null) {
@@ -277,7 +332,7 @@ public class UserTaskStatusService {
         List<Map<String, Object>> individualResults = null;
         if (entity.getIndividualResultsJson() != null && !entity.getIndividualResultsJson().isEmpty()) {
             try {
-                ObjectMapper objectMapper = new ObjectMapper();
+                // objectMapper는 이미 final로 선언되어 생성자에서 초기화되므로 여기서 다시 생성할 필요 없음
                 individualResults = objectMapper.readValue(entity.getIndividualResultsJson(), new TypeReference<List<Map<String, Object>>>() {});
                 log.info("DEBUG: Parsed individualResults from DB: {}", individualResults);
             } catch (Exception e) {
@@ -292,11 +347,15 @@ public class UserTaskStatusService {
                 .psychoImageResultId(entity.getPsychoImageResultId())
                 .personalityResultId(entity.getPersonalityResultId())
                 .psychoScaleResultId(entity.getPsychoScaleResultId())
-                .emotionLogId(entity.getEmotionLogId())
                 .counselingSummaryId(entity.getCounselingSummaryId())
                 .simulationResultId(entity.getSimulationResultId())
                 .analysisComment(entity.getAnalysisComment())
                 .analysisCompleted(entity.getAnalysisCompleted())
+                .dominantEmotion(entity.getDominantEmotion()) // 주요 감정 설정
+                .emotionId(entity.getEmotionId())
+                // ✨ DB에서 가져온 stressScore와 depressionScore를 DTO에 설정
+                .stressScore(entity.getStressScore())
+                .depressionScore(entity.getDepressionScore())
                 .individualResults(individualResults) // DB에서 가져온 individualResults 설정
                 .build();
     }

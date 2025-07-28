@@ -19,6 +19,7 @@ public interface CounselingSessionRepository extends JpaRepository<CounselingSes
     Optional<CounselingSessionEntity> findTopByUserOrderByCreatedAtDesc(UserEntity user);
 
 
+
     // admin 대시보드 상담 통계
     @Query("""
     SELECT FUNCTION('TO_CHAR', c.createdAt, 'IYYY-IW') AS week,
@@ -31,5 +32,8 @@ public interface CounselingSessionRepository extends JpaRepository<CounselingSes
 
     @Query("SELECT COUNT(c) FROM CounselingSessionEntity c")
     long countTotalCounselingLogs();
+
+    boolean existsByUser_UserId(String userId);
+
 }
 
