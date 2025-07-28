@@ -126,7 +126,6 @@ public class LogService {
     // 로그 저장
     @Transactional
     public void saveLog(Log log) {
-
         LogEntity entity = LogEntity.builder()
                 .userId(log.getUserId())
                 .action(log.getAction())
@@ -137,4 +136,11 @@ public class LogService {
                 .build();
 
         logRepository.save(entity);
-    }    }
+    }
+
+    // 로그인 실패 로그만 userId 기준으로 최근 10분 내 카운트
+    public int getFailedLoginCount(String userId) {
+        LocalDateTime tenMinutesAgo = LocalDateTime.now().minusMinutes(10);
+        return logRepository.countRecentFailedLogins(userId, tenMinutesAgo);
+    }
+}

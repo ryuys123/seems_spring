@@ -176,27 +176,40 @@ public class UserController {
                     // 로그 저장하기
                     logService.saveLog(Log.builder()
                             .userId(userId)
-                            .action("비밀번호 변경")
+                            .action("사용자 정보 변경")
                             .severity("INFO")
                             .beforeData("비밀번호 변경 전: [암호화된 상태로 생략]")
                             .afterData("비밀번호 변경 완료")
                             .build());
                     return ResponseEntity.ok().body("비밀번호가 성공적으로 변경되었습니다.");
                 } else {
-                    // 2. 수정 후 사용자 정보 가져오기 (afterData용)
+                    // 수정 후 사용자 정보 가져오기 (afterData용)
                     User afterUser = userService.findByUserId(userId);
                     log.info("beforeUser = {}", beforeUser);
                     log.info("afterUser = {}", afterUser);
-                    // 로그 저장하기
                     log.info(">>> 사용자 정보 변경 로그 저장 직전입니다");
 
-                    logService.saveLog(Log.builder()
-                            .userId(userId)
-                            .action("사용자 정보 수정")
-                            .severity("INFO")
-                            .beforeData("이름: " + beforeUser.getUserName() + ", 전화번호: " + beforeUser.getPhone())
-                            .afterData("이름: " + afterUser.getUserName() + ", 전화번호: " + afterUser.getPhone())
-                            .build());
+                    // 이름 변경된 경우 로그 저장
+                    if (!beforeUser.getUserName().equals(afterUser.getUserName())) {
+                        logService.saveLog(Log.builder()
+                                .userId(userId)
+                                .action("사용자 정보 변경")
+                                .severity("INFO")
+                                .beforeData("이름 : " + beforeUser.getUserName())
+                                .afterData("이름 : " + afterUser.getUserName())
+                                .build());
+                    }
+
+                    // 전화번호 변경된 경우 로그 저장
+                    if (!beforeUser.getPhone().equals(afterUser.getPhone())) {
+                        logService.saveLog(Log.builder()
+                                .userId(userId)
+                                .action("사용자 정보 변경")
+                                .severity("INFO")
+                                .beforeData("전화번호 : " +beforeUser.getPhone())
+                                .afterData("전화번호 : " +afterUser.getPhone())
+                                .build());
+                    }
 
                     return ResponseEntity.ok().body("프로필이 성공적으로 수정되었습니다.");
                 }
@@ -616,6 +629,14 @@ public class UserController {
             log.info(">>> 상태 변경 요청: userId={}, status={}", user.getUserId(), user.getStatus());
 
             if (userService.updateStatus(user) > 0) {
+                // 로그 저장
+                logService.saveLog(Log.builder()
+                        .userId(user.getUserId())
+                        .action("사용자 정보 변경")
+                        .severity("INFO")
+                        .beforeData("상태 변경 (관리자 수행)")
+                        .afterData("변경된 상태: " + (user.getStatus() == 1 ? "활성화" : "비활성화"))
+                        .build());
                 return ResponseEntity.ok().body("상태 변경 완료");
             } else {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("상태 변경 실패");

@@ -18,9 +18,14 @@ import java.time.LocalDateTime;
 @Entity     // jpa 가 관리함, db 테이블과 dto 클래스를 매핑하기 위해 필요함
 public class LogEntity {
     @Id     // jpa 가 엔티티를 관리할 때 식별할 id 생성 용도의 어노테이션임
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "system_logs_seq")
-    @SequenceGenerator(name = "system_logs_seq", sequenceName = "SEQ_SYSTEM_LOGS_LOG_ID", allocationSize = 1)
-    @Column(name = "LOG_ID", nullable = false)
+    //@GeneratedValue(strategy = GenerationType.IDENTITY)  //테이블 자동으로 만들어질떼 기본키 지정하는 어노테이션임
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "log_seq_gen")
+    @SequenceGenerator(
+            name = "log_seq_gen",
+            sequenceName = "SEQ_SYSTEM_LOGS_LOG_ID",
+            allocationSize = 1
+    )    @Column(name = "LOG_ID", nullable = false)
+
     private int logId;
     @Column(name = "USER_ID")
     private String userId;

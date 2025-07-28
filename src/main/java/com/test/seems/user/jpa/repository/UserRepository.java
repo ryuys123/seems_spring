@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDate;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Repository
@@ -37,6 +38,35 @@ public interface UserRepository extends JpaRepository<UserEntity, String>, UserR
     List<UserEntity> findByKeyword(@Param("keyword") String keyword, Pageable pageable);
     List<UserEntity> findByStatusEquals(int status, Pageable pageable);
     List<UserEntity> findByCreatedAtBetween(Date start, Date end, Pageable pageable);
+
+    //admin 대시보드 용
+    // 전체 사용자 수 (탈퇴자 제외)
+    @Query("SELECT COUNT(u) FROM UserEntity u WHERE u.status != 0")
+    Long countAllUsers();
+    // 전체 탈퇴자 수
+    @Query("SELECT COUNT(u) FROM UserEntity u WHERE u.status = 0")
+    Long countAllWithdraws();
+    // 주별 가입자수
+    @Query("SELECT NEW map(FUNCTION('TO_CHAR', u.createdAt, 'IYYY-IW') AS week, COUNT(u) AS count) " +
+            "FROM UserEntity u " +
+            "GROUP BY FUNCTION('TO_CHAR', u.createdAt, 'IYYY-IW') " +
+            "ORDER BY FUNCTION('TO_CHAR', u.createdAt, 'IYYY-IW')")
+    List<Map<String, Object>> getWeeklyJoinStats();
+    // 월별 가입자수
+    @Query("SELECT NEW map(FUNCTION('TO_CHAR', u.createdAt, 'YYYY-MM') AS date, COUNT(u) AS count) " +
+            "FROM UserEntity u " +
+            "GROUP BY FUNCTION('TO_CHAR', u.createdAt, 'YYYY-MM') " +
+            "ORDER BY FUNCTION('TO_CHAR', u.createdAt, 'YYYY-MM')")
+    List<Map<String, Object>> getMonthlyJoinStats();
+
+    // 오늘 가입자수
+    @Query("SELECT NEW map(FUNCTION('TO_CHAR', u.createdAt, 'YYYY-MM-DD') AS date, COUNT(u) AS count) " +
+            "FROM UserEntity u " +
+            "WHERE u.createdAt >= :startDate " +
+            "GROUP BY FUNCTION('TO_CHAR', u.createdAt, 'YYYY-MM-DD') " +
+            "ORDER BY FUNCTION('TO_CHAR', u.createdAt, 'YYYY-MM-DD')")
+    List<Map<String, Object>> getDailyJoinStats(@Param("startDate") Date startDate);
+
 }
 
 

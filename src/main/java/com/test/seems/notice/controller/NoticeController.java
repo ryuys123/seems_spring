@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.Map;
 
 import aj.org.objectweb.asm.commons.TryCatchBlockSorter;
+import com.test.seems.log.model.dto.Log;
+import com.test.seems.log.model.service.LogService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.test.seems.common.FileNameChange;
@@ -40,6 +42,7 @@ import jakarta.servlet.http.HttpServletRequest;
 public class NoticeController {
 
 	private final NoticeService noticeService;  //@RequiredArgsConstructor 로 해결
+	private final LogService logService;
 
 	@Value("${file.upload-dir}")
 	private String uploadDir;
@@ -203,16 +206,34 @@ public class NoticeController {
 		//새로 등록할 공지글 번호는 현재 마지막 등록글 번호에 + 1 한 값으로 저장 처리함
 		notice.setNoticeNo(noticeService.selectLast().getNoticeNo() + 1);
 
-		if (noticeService.insertNotice(notice) > 0) {
-			map.put("status", "success");
-			map.put("message", "새 공지 등록 성공!");
-			return ResponseEntity.status(HttpStatus.CREATED).body(map);
-		} else {
+		try {
+			if (noticeService.insertNotice(notice) > 0) {
+				map.put("status", "success");
+				map.put("message", "새 공지 등록 성공!");
+				return ResponseEntity.status(HttpStatus.CREATED).body(map);
+			} else {
+				// 실패지만 예외는 아님
+				map.put("status", "fail");
+				map.put("message", "DB 등록 실패");
+				return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(map);
+			}
+		} catch (Exception e) {
+			log.error("공지글 등록 중 시스템 오류 발생: {}", e.getMessage(), e);
+			try {
+				logService.saveLog(Log.builder()
+						.userId("") // 로그인 사용자 ID 넣을 수 있으면 넣기
+						.action("시스템 오류 발생")
+						.severity("ERROR")
+						.afterData("공지글 등록 실패")
+						.build());
+			} catch (Exception logEx) {
+				log.error("오류 로그 저장 실패: {}", logEx.getMessage(), logEx);
+			}
+
 			map.put("status", "fail");
-			map.put("message", "DB 등록 실패");
+			map.put("message", "공지글 등록 중 서버 오류 발생");
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(map);
 		}
-
 	}  // insertNotice closed
 
 	// 공지글 삭제 요청 처리용 : delete 쿼리문 실행 요청임 => 전송방식 delete => @DeleteMapping
@@ -231,7 +252,21 @@ public class NoticeController {
 
 			return ResponseEntity.ok("삭제 성공!");  //ResponseEntity<String>
 		} else {  // 공지글 삭제 실패시
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("공지글 삭제 실패!");
+			// 공지글 삭제 실패 시 로그
+			try {
+				logService.saveLog(Log.builder()
+						.userId("")
+						.action("공지글 삭제 실패")
+						.severity("ERROR")
+						.afterData("공지글 번호: " + noticeNo + " 삭제 실패")
+						.build());
+			} catch (Exception logEx) {
+				log.error("삭제 실패 로그 저장 중 오류 발생: {}", logEx.getMessage(), logEx);
+			}
+
+			return ResponseEntity
+					.status(HttpStatus.INTERNAL_SERVER_ERROR)
+					.body("공지글 삭제 실패!");
 		}
 	}
 
@@ -297,7 +332,21 @@ public class NoticeController {
 			// 공지글 수정 성공시, 관리자 상세보기 페이지로 이동 처리
 			return ResponseEntity.ok("공지 수정 성공");
 		} else {
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("공지 수정 실패!");
+// 공지글 삭제 실패 시 로그
+			try {
+				logService.saveLog(Log.builder()
+						.userId("")
+						.action("공지글 삭제 실패")
+						.severity("ERROR")
+						.afterData("공지글 번호: " + noticeNo + " 삭제 실패")
+						.build());
+			} catch (Exception logEx) {
+				log.error("삭제 실패 로그 저장 중 오류 발생: {}", logEx.getMessage(), logEx);
+			}
+
+			return ResponseEntity
+					.status(HttpStatus.INTERNAL_SERVER_ERROR)
+					.body("공지글 삭제 실패!");
 		}
 	}
 

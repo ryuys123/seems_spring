@@ -1,6 +1,8 @@
 package com.test.seems.security.filter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.test.seems.log.model.dto.Log;
+import com.test.seems.log.model.service.LogService;
 import com.test.seems.security.jwt.JWTUtil;
 import com.test.seems.security.jwt.jpa.entity.RefreshToken;
 import com.test.seems.security.jwt.model.service.RefreshService;
@@ -34,17 +36,20 @@ public class LoginFilter extends UsernamePasswordAuthenticationFilter {
     private final RefreshService refreshService;   // 리프레시토큰 db table 에 저장을 위해 필요
     // save (insert query) 실행 후 트랜잭션(commit, rollback) 처리를 위해 서비스를 사용함 (repository 는 트랜잭션 처리 못 함)
 
+    private final LogService logService;
+
     // 생성자에 PasswordEncoder 추가
     private final PasswordEncoder passwordEncoder;
 
     // 매개변수 있는 생성자 직접 작성해야 함
     public LoginFilter(AuthenticationManager authenticationManager, JWTUtil jwtUtil,
-                       UserRepository userRepository, RefreshService refreshService, PasswordEncoder passwordEncoder) {
+                       UserRepository userRepository, RefreshService refreshService, PasswordEncoder passwordEncoder, LogService logService) {
         this.setAuthenticationManager(authenticationManager);
         this.jwtUtil = jwtUtil;
         this.userRepository = userRepository;
         this.refreshService = refreshService;
         this.passwordEncoder = passwordEncoder;  // 추가
+        this.logService = logService; // 추가
         this.setFilterProcessesUrl("/login");   // 로그인 url 에 대한 앤드포인트 설정
     }
 
@@ -73,6 +78,8 @@ public class LoginFilter extends UsernamePasswordAuthenticationFilter {
             log.info("requestBody={}", requestBody);
             userId = requestBody.get("userId");
             userPwd = requestBody.get("userPwd");
+            // ✅ 실패 시를 대비해서 요청에 로그인 시도 ID 저장
+            request.setAttribute("attemptedUserId", userId);
         } catch (IOException e) {
             throw new RuntimeException("요청 데이터를 읽을 수 없습니다.", e);
         }
@@ -145,6 +152,14 @@ public class LoginFilter extends UsernamePasswordAuthenticationFilter {
                 userId, new Date(System.currentTimeMillis() + jwtUtil.getAccessExpiration()),
                 new Date(System.currentTimeMillis() + jwtUtil.getRefreshExpiration()));
 
+        // ✅ 로그인 성공 로그 저장
+        logService.saveLog(Log.builder()
+                .userId(userId)
+                .action("로그인 시도")
+                .severity("INFO")
+                .beforeData("")
+                .afterData("로그인 성공 - AccessToken 발급 완료")
+                .build());
 
         // 리프레시 토큰은 db에 저장
         // 만약, User 테이블에 refreshToken 저장 컬럼을 추가했다면
@@ -200,6 +215,34 @@ public class LoginFilter extends UsernamePasswordAuthenticationFilter {
             errorMessage = "로그인에 실패했습니다. 다시 시도해주세요.";
             errorCode = "LOGIN_FAILED";
         }
+        // ✅ request에 저장해둔 로그인 시도 ID 꺼내기
+        String userId = (String) request.getAttribute("attemptedUserId");
+
+        // 실패 횟수 조회 (userId가 있을 때만)
+        int failedCount = 0;
+        if (userId != null) {
+            try {
+                failedCount = logService.getFailedLoginCount(userId);
+            } catch (Exception e) {
+                log.warn("로그인 실패 카운트 조회 실패: {}", e.getMessage());
+            }
+        }
+
+        // 실패 5회 이상이면 CRITICAL, 아니면 WARN
+        String severity = failedCount + 1 >= 5 ? "CRITICAL" : "WARN";
+
+        try {
+            logService.saveLog(Log.builder()
+                    .userId(userId != null ? userId : "UNKNOWN")
+                    .action("로그인 시도")
+                    .severity(severity)
+                    .beforeData("")
+                    .afterData("로그인 실패 - " + failed.getMessage())
+                    .build());
+        } catch (Exception e) {
+            log.error("로그 저장 중 예외 발생: {}", e.getMessage(), e);
+        }
+
 
         // 더 구조화된 JSON 응답 생성
         Map<String, Object> errorResponse = Map.of(
