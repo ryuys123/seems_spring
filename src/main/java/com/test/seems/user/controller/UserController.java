@@ -297,24 +297,32 @@ public class UserController {
     // 비밀번호(패스워드) 암호화 처리 기능 추가
     @PostMapping("user/signup")
     public ResponseEntity userInsertMethod(
-            @RequestParam("userId") String userId,
-            @RequestParam("userName") String userName,
-            @RequestParam("phone") String phone,
-            @RequestParam("userPwd") String userPwd,
+            @RequestParam(value = "userId", required = false) String userId,
+            @RequestParam(value = "userName", required = false) String userName,
+            @RequestParam(value = "phone", required = false) String phone,
+            @RequestParam(value = "userPwd", required = false) String userPwd,
             @RequestParam(value = "email", required = false) String email,
-            @RequestParam(name="profileImage", required = false) MultipartFile ufile) {
+            @RequestParam(name="profileImage", required = false) MultipartFile ufile,
+            @RequestBody(required = false) User jsonUser) {
         
         try {
-            // User 객체 생성
-            User user = User.builder()
-                    .userId(userId)
-                    .userName(userName)
-                    .phone(phone)
-                    .userPwd(userPwd)
-                    .email(email)
-                    .build();
-
-            log.info("/user/signup : " + user);
+            // JSON으로 받은 경우와 FormData로 받은 경우 모두 처리
+            User user;
+            if (jsonUser != null) {
+                // JSON 방식으로 받은 경우
+                user = jsonUser;
+                log.info("JSON 방식 회원가입 요청: {}", user);
+            } else {
+                // FormData 방식으로 받은 경우
+                user = User.builder()
+                        .userId(userId)
+                        .userName(userName)
+                        .phone(phone)
+                        .userPwd(userPwd)
+                        .email(email)
+                        .build();
+                log.info("FormData 방식 회원가입 요청: {}", user);
+            }
 
             // 패스워드 암호화 처리
             user.setUserPwd(bcryptPasswordEncoder.encode(user.getUserPwd()));
