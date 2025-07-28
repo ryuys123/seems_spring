@@ -1,6 +1,7 @@
 package com.test.seems.security.config;
 
 import com.test.seems.face.filter.FaceLoginFilter;
+import com.test.seems.log.model.service.LogService;
 import com.test.seems.security.filter.JWTFilter;
 import com.test.seems.security.filter.LoginFilter;
 import com.test.seems.security.handler.CustomLogoutHandler;
@@ -40,15 +41,17 @@ public class SecurityConfig implements WebMvcConfigurer {
     private final CustomUserDetailsService userDetailsService;
     private final UserRepository userRepository;   // 아래의 필터 추가 부분에 LoginFilter 생성자 사용에 필요해서 준비한 것임
     private final RefreshService refreshService; // LoginFilter 생성자에 필요해서 준비함
+    private final LogService logService; // ✅ 로그인시 로그데이터 기록
 
     // 멤버변수에 final 사용하면, 매개변수 있는 생성자로 의존성 주입 처리해야 함
     // @RequiredArgsConstructor 로 대신해도 됨
     public SecurityConfig(JWTUtil jwtUtil, CustomUserDetailsService userDetailsService,
-                          UserRepository userRepository, RefreshService refreshService) {
+                          UserRepository userRepository, RefreshService refreshService, LogService logService) {
         this.jwtUtil = jwtUtil;
         this.userDetailsService = userDetailsService;
         this.userRepository = userRepository;
         this.refreshService = refreshService;
+        this.logService = logService;
     }
 
     @Bean
@@ -108,11 +111,6 @@ public class SecurityConfig implements WebMvcConfigurer {
     }
 
 
-
-
-
-
-
     // ---------------------------------------------------------
     // CORS (Cross-Origin Resource Sharing) 문제 해결해야 함
     // 브라우저 보안 정책임 : 포트번호가 다른 도메인에서 다른 도메인의 리소스를 요청할 때, 허용되지 않게 되어 있음
@@ -163,8 +161,8 @@ public class SecurityConfig implements WebMvcConfigurer {
                                 "/api/psychological-test/image-question", // 이미지 문항 조회
                                 "/api/psychological-test/submit-answer",  // 답변 제출
                                 "/api/psychological-test/results/**",     // 결과 조회
-                                         "/api/personality-test/questions", "/api/personality-test/submit-answers",
-                                        "/api/psychological-test/**",
+                                "/api/personality-test/questions", "/api/personality-test/submit-answers",
+                                "/api/psychological-test/**",
                                 "/api/personality-test/results/**",
                                 "/api/personality-test/history/**",
                                 "/api/quest-rewards/**", // 뱃지 상점 API
@@ -196,9 +194,9 @@ public class SecurityConfig implements WebMvcConfigurer {
                 .addFilterBefore(new JWTFilter(jwtUtil, userDetailsService), UsernamePasswordAuthenticationFilter.class)
                 // ===== 페이스로그인 필터 추가 =====
                 .addFilterBefore(faceLoginFilter,
-                               UsernamePasswordAuthenticationFilter.class)
+                        UsernamePasswordAuthenticationFilter.class)
                 // 로그인 인증(Authentication) 은 인증 관리자(AuthenticationManager)가 관리해야 함
-                .addFilterAt(new LoginFilter(authenticationManager, jwtUtil, userRepository, refreshService, passwordEncoder()),
+                .addFilterAt(new LoginFilter(authenticationManager, jwtUtil, userRepository, refreshService, passwordEncoder(), logService),
                         UsernamePasswordAuthenticationFilter.class)
                 .logout(logout -> logout
                         .logoutUrl("/logout")  // 로그아웃 요청 url 지정
