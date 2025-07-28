@@ -17,4 +17,7 @@ public interface SimulationSettingRepository extends JpaRepository<SimulationSet
     // ✅ 'cannot find symbol' 오류 해결을 위해 이 메소드 선언을 추가해야 합니다.
     Optional<SimulationSettingEntity> findTopByUserIdAndStatusOrderByCreatedAtDesc(String userId, String status);
     Optional<SimulationSettingEntity> findByUserIdAndStatus(String userId, String status);
+    // ✅ 시뮬레이션 서비스의 getLatestSimulationResult에서 사용될 메서드 추가
+    // userId에 해당하는 가장 최근 COMPLETED 상태의, scenarioId가 NULL인 (AI 생성) Setting을 찾습니다.
+    Optional<SimulationSettingEntity> findTopByUserIdAndStatusAndScenarioIdIsNullOrderByCreatedAtDesc(String userId, String status);
 }
