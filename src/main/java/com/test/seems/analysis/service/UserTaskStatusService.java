@@ -352,6 +352,7 @@ public class UserTaskStatusService {
                 .analysisComment(entity.getAnalysisComment())
                 .analysisCompleted(entity.getAnalysisCompleted())
                 .dominantEmotion(entity.getDominantEmotion()) // 주요 감정 설정
+                .emotionId(entity.getEmotionId())
                 // ✨ DB에서 가져온 stressScore와 depressionScore를 DTO에 설정
                 .stressScore(entity.getStressScore())
                 .depressionScore(entity.getDepressionScore())
