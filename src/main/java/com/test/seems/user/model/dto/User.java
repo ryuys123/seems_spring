@@ -1,6 +1,7 @@
 package com.test.seems.user.model.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.test.seems.user.jpa.entity.UserEntity;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
@@ -22,6 +23,7 @@ public class User {
     private String userPwd;   // USER_PWD VARCHAR2(255)
     @NotBlank
     private String userName;       // USERNAME VARCHAR2(50) NOT NULL
+    @JsonIgnore
     private String profileImage;   // PROFILE_IMAGE BLOB
     private String email; // EMAIL VARCHAR2(100 BYTE)
     @JsonFormat(pattern = "yyyy-MM-dd")

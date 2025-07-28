@@ -35,6 +35,8 @@ ext {
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	//스프링 부트 시큐리티 관련 기본 설정과 의존성 기능 제공
+	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+	//Spring Security OAuth2 클라이언트 지원
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	//데이터의 유효성 검사용 어노테이션 제공
 	implementation 'org.springframework.boot:spring-boot-starter-web'

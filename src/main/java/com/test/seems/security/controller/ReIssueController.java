@@ -33,7 +33,7 @@ public class ReIssueController {
     private final UserService userService; // 토큰에서 추출한 userId 로 회원 정보 조회를 하기위해 의존성 추가함
     private final RefreshService refreshService; // 리프레시토큰 수정 } 삭제 처리를 위한 의존성 주입
 
-    @PostMapping("/reissue")
+    @PostMapping({"/reissue", "/api/reissue"})
     public ResponseEntity<?> reissueToken(HttpServletRequest request, HttpServletResponse response) {
         log.info("ReissueController 실행");
 
@@ -48,11 +48,23 @@ public class ReIssueController {
         log.info("extendLogin: {} ", extendLogin);
 
         try {
-            // 추출된 해더 정보에서 토큰값만 추출하기 : 앞에 붙은 "Bearer " 제거함
-            String accessToken = accessTokenHeader != null && accessTokenHeader.startsWith("Bearer ")
-                    ? accessTokenHeader.substring("Bearer ".length()).trim() : null;
-            String refreshToken = refreshTokenHeader != null && refreshTokenHeader.startsWith("Bearer ")
-                    ? refreshTokenHeader.substring("Bearer ".length()).trim() : null;
+            // 추출된 해더 정보에서 토큰값만 추출하기 : 앞에 붙은 "Bearer " 제거함 (중복 Bearer 처리)
+            String accessToken = null;
+            String refreshToken = null;
+            
+            if (accessTokenHeader != null) {
+                // "Bearer Bearer token" 또는 "Bearer token" 모두 처리
+                String temp = accessTokenHeader.replaceFirst("^Bearer\\s+", "").trim();
+                accessToken = temp.replaceFirst("^Bearer\\s+", "").trim(); // 혹시 모를 중복 Bearer 제거
+
+            }
+            
+            if (refreshTokenHeader != null) {
+                // "Bearer Bearer token" 또는 "Bearer token" 모두 처리  
+                String temp = refreshTokenHeader.replaceFirst("^Bearer\\s+", "").trim();
+                refreshToken = temp.replaceFirst("^Bearer\\s+", "").trim(); // 혹시 모를 중복 Bearer 제거
+
+            }
 
             if (accessToken == null || refreshToken == null) {
                 log.warn("RefreshToken or AccessToken 이 제공되지 않습니다.");
@@ -71,6 +83,35 @@ public class ReIssueController {
             log.info("토큰 만료 상태 - userId: {}, accessToken만료: {}, refreshToken만료: {}",
                     jwtUtil.getUseridFromToken(accessToken), isAccessTokenExpired, isRefreshTokenExpired);
 
+            // ⭐ 강제 세션 연장 처리 (둘 다 유효하지만 연장 요청한 경우)
+            if ("true".equalsIgnoreCase(extendLogin) && 
+                !isAccessTokenExpired && !isRefreshTokenExpired) {
+                
+                String userId = jwtUtil.getUseridFromToken(accessToken);
+                User user = userService.selectUser(userId);
+
+                log.info("강제 세션 연장 - userId: {}, 시간: {}", userId, LocalDateTime.now());
+
+                // 새로운 토큰들 생성
+                String newAccessToken = jwtUtil.generateToken(user, "access");
+                String newRefreshToken = jwtUtil.generateToken(user, "refresh");
+                
+                // DB의 리프레시토큰 업데이트
+                String id = refreshService.selectId(userId, refreshToken);
+                refreshService.updateRefreshToken(id, newRefreshToken);
+
+                // 응답 헤더에 새 토큰들 포함 (순수 토큰만 전송)
+                response.setHeader("Authorization", newAccessToken);
+                response.setHeader("Refresh-Token", newRefreshToken);
+                response.setHeader("Access-Control-Expose-Headers", "Authorization, Refresh-Token");
+                
+                log.info("새 토큰 응답 전송 - AccessToken: {}..., RefreshToken: {}...", 
+                    newAccessToken.substring(0, Math.min(20, newAccessToken.length())),
+                    newRefreshToken.substring(0, Math.min(20, newRefreshToken.length())));
+                
+                return ResponseEntity.ok("Session Extended - Both tokens reissued");
+            }
+
             // accessToken 이 유효하고 RefreshToken 이 만료된 경우  --------------------------------
             if (!isAccessTokenExpired && isRefreshTokenExpired) {
                 // 로그인 연장을 요청하였다면
@@ -87,8 +128,8 @@ public class ReIssueController {
                     String id = refreshService.selectId(userId, refreshToken);  // id 조회
                     refreshService.updateRefreshToken(id, newRefreshToken);  // 리프레시토큰 변경
 
-                    // 응답 객체에 기록해서 응답 처리함
-                    response.setHeader("Refresh-Token", "Bearer " + newRefreshToken);
+                    // 응답 객체에 기록해서 응답 처리함 (순수 토큰만 전송)
+                    response.setHeader("Refresh-Token", newRefreshToken);
                     response.setHeader("Access-Control-Expose-Headers", "Refresh-Token");
                     return ResponseEntity.ok("RefreshToken Reissued");
                 }  // 로그인 연장 요청이면
@@ -115,8 +156,8 @@ public class ReIssueController {
                 // 새로운 accessToken 발급함
                 String newAccessToken = jwtUtil.generateToken(user, "access");
 
-                // 응답 처리함
-                response.setHeader("Authorization", "Bearer " + newAccessToken);
+                // 응답 처리함 (순수 토큰만 전송)
+                response.setHeader("Authorization", newAccessToken);
                 response.setHeader("Access-Control-Expose-Headers", "Authorization");
                 return ResponseEntity.ok("Access Token Reissued");
             }  // access 만료, refresh 유효

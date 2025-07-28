@@ -40,4 +40,9 @@ public class FaceSignupRequest {
      * 얼굴 이미지 데이터 (Base64 인코딩) - React 호환용
      */
     private String imageData;
+
+    /**
+     * 기존 사용자 여부 (true: 기존 사용자, false: 신규 사용자)
+     */
+    private Boolean isExistingUser;
 }

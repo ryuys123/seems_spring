@@ -10,8 +10,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import net.nurigo.sdk.NurigoApp;
 import net.nurigo.sdk.message.model.Message;
 import net.nurigo.sdk.message.service.DefaultMessageService;
@@ -49,6 +51,9 @@ public class UserVerificationService {
     // 본인인증 통합 처리
     public UserVerificationResponse processVerification(UserVerificationRequest request) {
         try {
+            log.info("본인인증 요청 데이터 - type: {}, phone: {}, name: {}, userId: {}", 
+                    request.getVerificationType(), request.getPhone(), request.getName(), request.getUserId());
+            
             switch (request.getVerificationType()) {
                 case "SMS_SEND":
                     return sendSmsVerification(request);
@@ -99,8 +104,50 @@ public class UserVerificationService {
 
     // 아이디 찾기
     private UserVerificationResponse findUserId(UserVerificationRequest request) {
-        // 이름과 휴대폰번호로 사용자 조회
+        log.info("아이디 찾기 요청 - name: '{}', phone: '{}'", request.getName(), request.getPhone());
+        
+        // DB에 저장된 전체 사용자 정보 로깅 (디버깅용)
+        List<UserEntity> allUsers = userRepository.findAll();
+        log.info("DB 전체 사용자 수: {}", allUsers.size());
+        log.info("DB 전체 사용자 목록:");
+        for (UserEntity u : allUsers) {
+            log.info("  - userId: {}, userName: '{}', phone: '{}'", u.getUserId(), u.getUserName(), u.getPhone());
+        }
+        
+        // 전화번호 정규화 (하이픈 제거 + 공백 제거)
+        String normalizedPhone = request.getPhone() != null ? request.getPhone().replaceAll("-", "").trim() : null;
+        log.info("정규화된 전화번호: '{}'", normalizedPhone);
+        
+        // 1. 이름과 휴대폰번호로 사용자 조회 (원본 전화번호로 먼저 시도)
         UserEntity user = userRepository.findByUserNameAndPhone(request.getName(), request.getPhone());
+        
+        // 2. 원본 전화번호로 찾지 못한 경우 정규화된 전화번호로 시도
+        if (user == null && normalizedPhone != null && !normalizedPhone.equals(request.getPhone())) {
+            log.info("원본 전화번호로 찾지 못함, 정규화된 전화번호로 재시도");
+            user = userRepository.findByUserNameAndPhone(request.getName(), normalizedPhone);
+        }
+        
+        // 3. 여전히 찾지 못한 경우 전화번호만으로 조회 (디버깅용)
+        if (user == null) {
+            log.info("이름과 전화번호로 찾지 못함, 전화번호만으로 조회 시도");
+            log.info("요청한 전화번호: '{}'", request.getPhone());
+            log.info("정규화된 전화번호: '{}'", normalizedPhone);
+            
+            // 전화번호만으로 조회하는 메소드가 없다면 직접 구현
+            List<UserEntity> usersByPhone = userRepository.findAll().stream()
+                    .filter(u -> (u.getPhone() != null && u.getPhone().trim().equals(request.getPhone().trim())) ||
+                                (normalizedPhone != null && u.getPhone() != null && u.getPhone().trim().equals(normalizedPhone)))
+                    .collect(Collectors.toList());
+            
+            log.info("전화번호로 찾은 사용자들: {}", usersByPhone.stream().map(u -> u.getUserId() + "(" + u.getUserName() + ")").collect(Collectors.toList()));
+            
+            if (!usersByPhone.isEmpty()) {
+                user = usersByPhone.get(0); // 첫 번째 사용자 선택
+                log.info("전화번호로 사용자 찾음: {}", user.getUserId());
+            }
+        }
+        
+        log.info("최종 DB 조회 결과 - user: {}", user != null ? user.getUserId() : "null");
 
         UserVerificationResponse response = new UserVerificationResponse();
         if (user == null) {

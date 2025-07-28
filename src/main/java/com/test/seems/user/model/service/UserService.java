@@ -31,6 +31,12 @@ public class UserService {
     @Autowired
     private BCryptPasswordEncoder bcryptPasswordEncoder;
 
+    public User findByUserId(String userId) {
+        return userRepository.findById(userId)
+                .map(UserEntity::toDto)
+                .orElse(null);
+    }
+
     public boolean selectCheckId(String userId) {
         //기존 가입회원과 아이디 중복 검사용
         //jpa 제공 메소드 사용
@@ -49,13 +55,18 @@ public class UserService {
     public UserInfoResponse getUserInfoByUserId(String userId) {
         UserEntity entity = userRepository.findByUserId(userId);
         if (entity == null) return null;
+        
+        // 페이스 연동 상태 확인
+        Boolean faceLinked = entity.getFaceLoginEnabled();
+        
         return new UserInfoResponse(
                 entity.getUserName(),
                 entity.getEmail(),
                 entity.getPhone(),
                 entity.getProfileImage(),
                 entity.getCreatedAt() != null ? entity.getCreatedAt().toString() : null,
-                entity.getStatus()
+                entity.getStatus(),
+                faceLinked
         );
     }
 
@@ -64,11 +75,22 @@ public class UserService {
         UserEntity entity = userRepository.findByUserId(userId);
         if (entity == null) return false;
         
-        // 기본 정보 업데이트
-        entity.setUserName(req.getUserName());
-        entity.setEmail(req.getEmail());
-        entity.setPhone(req.getPhone());
-        entity.setProfileImage(req.getProfileImage());
+        log.info("업데이트 전 사용자 정보: userName={}, email={}, phone={}, profileImage={}", 
+                entity.getUserName(), entity.getEmail(), entity.getPhone(), entity.getProfileImage());
+        
+        // 기본 정보 업데이트 - NULL 값 처리 개선
+        entity.setUserName(req.getUserName() != null && !req.getUserName().trim().isEmpty() ? req.getUserName() : entity.getUserName());
+        entity.setEmail(req.getEmail() != null && !req.getEmail().trim().isEmpty() ? req.getEmail() : entity.getEmail());
+        entity.setPhone(req.getPhone() != null && !req.getPhone().trim().isEmpty() ? req.getPhone() : entity.getPhone());
+        
+        // 프로필 이미지가 새로 업로드된 경우에만 업데이트
+        if (req.getProfileImage() != null && !req.getProfileImage().trim().isEmpty()) {
+            entity.setProfileImage(req.getProfileImage());
+            log.info("프로필 이미지 업데이트: {}", req.getProfileImage());
+        } else {
+            log.info("프로필 이미지 업데이트 없음, 기존 값 유지: {}", entity.getProfileImage());
+        }
+        
         entity.setUpdatedAt(new java.util.Date());
         
         // 비밀번호 변경 처리
@@ -98,6 +120,10 @@ public class UserService {
         }
         
         userRepository.save(entity);
+        
+        log.info("업데이트 후 사용자 정보: userName={}, email={}, phone={}, profileImage={}", 
+                entity.getUserName(), entity.getEmail(), entity.getPhone(), entity.getProfileImage());
+        
         return true;
     }
 
@@ -359,16 +385,12 @@ public class UserService {
     @Transactional
     public boolean deleteSocialUser(String userId) {
         try {
-            UserEntity user = userRepository.findByUserId(userId);
-            if (user == null) {
-                log.warn("소셜 회원 탈퇴 실패 - 사용자 없음: userId={}", userId);
-                return false;
-            }
-            
+            // 1. 소셜 연동 정보 먼저 삭제
+            // socialLoginRepository.deleteByUser_UserId(userId); // socialLoginRepository가 없으므로 주석 처리
+            // 2. 사용자 정보 삭제
             userRepository.deleteById(userId);
             log.info("소셜 회원 탈퇴 완료: userId={}", userId);
             return true;
-            
         } catch (Exception e) {
             log.error("소셜 회원 탈퇴 중 오류 발생: userId={}, error={}", userId, e.getMessage());
             return false;
