@@ -1,7 +1,8 @@
 package com.test.seems.simulation.controller;
 
-import com.test.seems.simulation.model.dto.SimulationQuestion; // SimulationQuestion DTO는 유지
-import com.test.seems.simulation.model.dto.SimulationResult; // SimulationResult DTO는 유지
+import com.test.seems.simulation.model.dto.SimulationQuestion;
+import com.test.seems.simulation.model.dto.SimulationResult;
+import com.test.seems.simulation.model.dto.SimulationResultDetails; // ✅ SimulationResultDetails DTO 임포트
 import com.test.seems.simulation.model.service.SimulationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -69,6 +70,7 @@ public class SimulationController {
         }
     }
 
+
     /**
      * POST /api/simulation/end
      * 시뮬레이션의 최종 분석을 요청하고 결과를 저장하는 API입니다.
@@ -120,6 +122,25 @@ public class SimulationController {
         // service.resumeSimulation은 Optional<Map<String, Object>>를 반환하도록 변경될 예정입니다.
         Optional<Map<String, Object>> setting = simulationService.resumeSimulation(userId);
         return setting.map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    /**
+     * GET /api/simulation/result-details/{settingId}
+     * 특정 settingId에 해당하는 시뮬레이션 상세 결과를 조회합니다.
+     * 이 API는 SimulationResultPage에서 호출합니다.
+     * @param settingId 조회할 시뮬레이션 설정 ID
+     * @return SimulationResultDetails DTO 또는 404 Not Found
+     */
+    @GetMapping("/result-details/{settingId}")
+    public ResponseEntity<SimulationResultDetails> getSimulationResultDetails(@PathVariable Long settingId) {
+        System.out.println("백엔드에서 getSimulationResultDetails 호출됨, settingId: " + settingId);
+
+        // ✅ 이 부분을 수정하여 실제 서비스 로직을 호출하고,
+        // SimulationResultDetails 객체를 DB에서 조회하여 반환하도록 변경해야 합니다.
+        Optional<SimulationResultDetails> resultDetails = simulationService.getSimulationResultDetails(settingId);
+
+        return resultDetails.map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }

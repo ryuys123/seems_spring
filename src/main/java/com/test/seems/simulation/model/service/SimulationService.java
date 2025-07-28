@@ -1,5 +1,3 @@
-// D:\Finalworkspace\backend\src\main\java\com\test\seems\simulation\model\service\SimulationService.java
-
 package com.test.seems.simulation.model.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -9,8 +7,9 @@ import com.test.seems.simulation.jpa.entity.SimulationSettingEntity;
 import com.test.seems.simulation.jpa.entity.SimulationUserResultEntity;
 import com.test.seems.simulation.jpa.repository.SimulationSettingRepository;
 import com.test.seems.simulation.jpa.repository.SimulationUserResultRepository;
-import com.test.seems.simulation.model.dto.SimulationQuestion;
-import com.test.seems.simulation.model.dto.SimulationResult;
+import com.test.seems.simulation.model.dto.SimulationQuestion; // SimulationQuestion DTO는 유지
+import com.test.seems.simulation.model.dto.SimulationResult; // SimulationResult DTO는 유지
+import com.test.seems.simulation.model.dto.SimulationResultDetails; // ✅ SimulationResultDetails DTO 임포트 추가
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,7 +30,6 @@ public class SimulationService {
     private final AiGenerationService aiGenerationService;
 
     // --- 의존성 주입 (Repositories & ObjectMapper) ---
-    // private final ScenarioRepository scenarioRepository; // ✅ 제거 (ScenarioEntity 삭제했으므로)
     private final SimulationSettingRepository settingRepository;
     private final SimulationUserResultRepository userResultRepository;
     private final ObjectMapper objectMapper;
@@ -49,10 +47,10 @@ public class SimulationService {
 
         if (setting.getCurrentQuestionNumber() > MAX_SIMULATION_QUESTIONS) {
             log.info("Simulation for settingId: {} reached max questions ({}). Ending simulation.", settingId, MAX_SIMULATION_QUESTIONS);
-            SimulationResult finalResult = analyzeAndSaveResult(settingId, history);
+            SimulationResult finalResult = analyzeAndSaveResult(settingId, history); // 이 finalResult가 120/95점을 포함하는 곳입니다.
             Map<String, Object> response = new HashMap<>();
             response.put("isSimulationEnded", true);
-            response.put("result", finalResult);
+            response.put("result", finalResult); // 이 `result` 필드에 최종 결과가 담깁니다.
             return response;
         }
 
@@ -106,7 +104,6 @@ public class SimulationService {
 
         SimulationSettingEntity setting = SimulationSettingEntity.builder()
                 .userId(userId)
-                .scenarioId(null)
                 .status("IN_PROGRESS")
                 .createdAt(LocalDateTime.now())
                 .currentQuestionNumber(1)
@@ -171,8 +168,8 @@ public class SimulationService {
                 .settingId(settingId)
                 .resultTitle(resultTitle)
                 .resultSummary(resultSummary)
-                .initialStressScore(setting.getInitialStressScore())
-                .initialDepressionScore(setting.getInitialDepressionScore())
+                .initialStressScore(setting.getInitialStressScore()) // 시작 스트레스 점수를 setting에서 가져옴
+                .initialDepressionScore(setting.getInitialDepressionScore()) // 시작 우울감 점수를 setting에서 가져옴
                 .estimatedFinalStressScore(estimatedFinalStressScore)
                 .estimatedFinalDepressionScore(estimatedFinalDepressionScore)
                 .positiveContributionFactors(positiveContributionFactors)
@@ -185,39 +182,57 @@ public class SimulationService {
         setting.setStatus("COMPLETED");
         settingRepository.save(setting);
 
-        return savedResult.toDto();
+        return savedResult.toDto(); // 이 toDto() 메서드가 반환하는 SimulationResult DTO에 120/95점 포함된 것으로 보입니다.
     }
 
     @Transactional(readOnly = true)
     public Optional<SimulationResult> getLatestSimulationResult(String userId) {
         Optional<SimulationSettingEntity> latestSetting = settingRepository
-                .findTopByUserIdAndStatusAndScenarioIdIsNullOrderByCreatedAtDesc(userId, "COMPLETED");
+                .findTopByUserIdAndStatusOrderByCreatedAtDesc(userId, "COMPLETED");
 
         if (latestSetting.isPresent()) {
             Long settingId = latestSetting.get().getSettingId();
             Optional<SimulationUserResultEntity> userResult = userResultRepository.findBySettingId(settingId);
-            return userResult.map(SimulationUserResultEntity::toDto);
+            return userResult.map(SimulationUserResultEntity::toDto); // 이 toDto() 메서드가 반환하는 SimulationResult DTO에 120/95점 포함된 것으로 보입니다.
         }
         return Optional.empty();
     }
 
     @Transactional(readOnly = true)
-    public Optional<Map<String, Object>> resumeSimulation(String userId) { // ✅ 반환 타입 변경
+    public Optional<Map<String, Object>> resumeSimulation(String userId) {
         log.info("Attempting to resume simulation for userId: {}", userId);
         Optional<SimulationSettingEntity> settingOptional = settingRepository.findByUserIdAndStatus(userId, "IN_PROGRESS");
 
         if (settingOptional.isPresent()) {
             SimulationSettingEntity setting = settingOptional.get();
-            // 재개 시에는 마지막 질문과 선택지를 포함한 DTO가 필요할 수 있습니다.
-            // 여기서는 settingId만 포함한 Map을 반환하고, 클라이언트에서 이를 바탕으로 마지막 질문을 다시 요청하도록 할 수 있습니다.
             Map<String, Object> resumeInfo = new HashMap<>();
             resumeInfo.put("settingId", setting.getSettingId());
-            // 필요한 경우 여기에 마지막 질문 번호나 AI가 생성한 질문/옵션 데이터를 추가할 수 있습니다.
-            // 예: resumeInfo.put("lastQuestionNumber", setting.getCurrentQuestionNumber());
-            // 클라이언트가 이 정보를 바탕으로 API를 한 번 더 호출하여 실제 질문 내용을 가져올 수 있습니다.
             return Optional.of(resumeInfo);
         }
         log.info("No IN_PROGRESS simulation found for userId: {}", userId);
         return Optional.empty();
+    }
+
+    // ✅ SimulationResultDetails를 가져오는 메서드 추가
+    @Transactional(readOnly = true)
+    public Optional<SimulationResultDetails> getSimulationResultDetails(Long settingId) {
+        log.info("Fetching simulation result details for settingId: {}", settingId);
+        // SimulationUserResultRepository를 사용하여 settingId에 해당하는 최종 사용자 결과를 조회합니다.
+        Optional<SimulationUserResultEntity> userResultEntityOptional = userResultRepository.findBySettingId(settingId);
+
+        return userResultEntityOptional.map(userResultEntity -> {
+            // 조회된 엔티티를 SimulationResultDetails DTO로 변환합니다.
+            // 이 DTO의 필드명과 엔티티의 필드명이 일치해야 합니다.
+            // 예를 들어, SimulationUserResultEntity에 resultTitle, resultSummary 등의 필드가 직접 매핑되어 있다면.
+            return new SimulationResultDetails(
+                    userResultEntity.getResultTitle(),
+                    userResultEntity.getResultSummary(),
+                    userResultEntity.getPositiveContributionFactors(),
+                    userResultEntity.getInitialStressScore(),
+                    userResultEntity.getEstimatedFinalStressScore(),
+                    userResultEntity.getInitialDepressionScore(),
+                    userResultEntity.getEstimatedFinalDepressionScore()
+            );
+        });
     }
 }

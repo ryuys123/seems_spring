@@ -24,12 +24,6 @@ public class SimulationSettingEntity {
     @Column(name = "USER_ID", nullable = false, length = 255)
     private String userId;
 
-    // 극복 시뮬레이션의 경우 scenarioId가 없을 수 있으므로 nullable을 true로 변경하거나
-    // @Column(name = "SCENARIO_ID", nullable = true) 등으로 조정 필요
-    // 현재 종합 분석 기반의 극복 시뮬레이션은 scenarioId가 null이 될 수 있습니다.
-    @Column(name = "SCENARIO_ID", nullable = true) // ✅ AI 생성 시나리오를 위해 nullable을 true로 변경
-    private Long scenarioId;
-
     @Column(name = "STATUS", nullable = false, length = 20)
     private String status;
 
