@@ -7,6 +7,7 @@ package com.test.seems.notice.jpa.repository;
 // @Repository 어노테이션 반드시 표시해야 함 => 자동 등록됨 => Service 에서 사용할 수 있게 됨
 
 import com.test.seems.notice.jpa.entity.NoticeEntity;
+import com.test.seems.notice.model.dto.Notice;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -28,6 +29,8 @@ public interface NoticeRepository extends JpaRepository<NoticeEntity, Integer> {
     //List<NoticeEntity> findByImportance(String importance, Pageable pageable);
     // 내부 코드는 자동 구현됨, 메소드 이름을 보고 sql 구문을 자동 생성함, 메소드 선언만 하면 됨
     List<NoticeEntity> findTop3ByImportanceOrderByNoticeDateDescNoticeNoDesc(String importance);
+
+    Page<NoticeEntity> findAllByOrderByImportanceDescNoticeDateDesc(Pageable pageable);
 
     //제목 키워드 검색 관련 목록 갯수 조회용
     int countByTitleContainingIgnoreCase(String keyword);
