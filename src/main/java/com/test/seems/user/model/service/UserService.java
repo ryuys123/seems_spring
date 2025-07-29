@@ -1,13 +1,11 @@
 package com.test.seems.user.model.service;
 
-import com.test.seems.notice.model.dto.Notice;
+import com.test.seems.quest.jpa.entity.UserPointsEntity;
+import com.test.seems.quest.jpa.repository.UserPointsRepository;
 import com.test.seems.user.jpa.entity.UserEntity;
 import com.test.seems.user.jpa.repository.UserRepository;
 import com.test.seems.user.model.dto.User;
 import com.test.seems.user.model.dto.UserInfoResponse;
-import com.test.seems.quest.jpa.repository.UserPointsRepository; // quest 패키지의 UserPointsRepository 임포트
-import com.test.seems.quest.jpa.entity.UserPointsEntity; // quest 패키지의 UserPointsEntity 임포트
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,7 +15,6 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -60,10 +57,10 @@ public class UserService {
     public UserInfoResponse getUserInfoByUserId(String userId) {
         UserEntity entity = userRepository.findByUserId(userId);
         if (entity == null) return null;
-        
+
         // 페이스 연동 상태 확인
         Boolean faceLinked = entity.getFaceLoginEnabled();
-        
+
         return new UserInfoResponse(
                 entity.getUserName(),
                 entity.getEmail(),
@@ -79,15 +76,15 @@ public class UserService {
     public boolean updateUserInfo(String userId, com.test.seems.user.model.dto.UserInfoResponse req) {
         UserEntity entity = userRepository.findByUserId(userId);
         if (entity == null) return false;
-        
-        log.info("업데이트 전 사용자 정보: userName={}, email={}, phone={}, profileImage={}", 
+
+        log.info("업데이트 전 사용자 정보: userName={}, email={}, phone={}, profileImage={}",
                 entity.getUserName(), entity.getEmail(), entity.getPhone(), entity.getProfileImage());
-        
+
         // 기본 정보 업데이트 - NULL 값 처리 개선
         entity.setUserName(req.getUserName() != null && !req.getUserName().trim().isEmpty() ? req.getUserName() : entity.getUserName());
         entity.setEmail(req.getEmail() != null && !req.getEmail().trim().isEmpty() ? req.getEmail() : entity.getEmail());
         entity.setPhone(req.getPhone() != null && !req.getPhone().trim().isEmpty() ? req.getPhone() : entity.getPhone());
-        
+
         // 프로필 이미지가 새로 업로드된 경우에만 업데이트
         if (req.getProfileImage() != null && !req.getProfileImage().trim().isEmpty()) {
             entity.setProfileImage(req.getProfileImage());
@@ -95,9 +92,9 @@ public class UserService {
         } else {
             log.info("프로필 이미지 업데이트 없음, 기존 값 유지: {}", entity.getProfileImage());
         }
-        
+
         entity.setUpdatedAt(new java.util.Date());
-        
+
         // 비밀번호 변경 처리
         if (req.getCurrentPassword() != null && req.getNewPassword() != null && req.getConfirmPassword() != null) {
             // 현재 비밀번호 확인
@@ -105,30 +102,30 @@ public class UserService {
                 log.warn("비밀번호 변경 실패 - 현재 비밀번호 불일치: userId={}", userId);
                 return false;
             }
-            
+
             // 새 비밀번호와 확인 비밀번호 일치 확인
             if (!req.getNewPassword().equals(req.getConfirmPassword())) {
                 log.warn("비밀번호 변경 실패 - 새 비밀번호 불일치: userId={}", userId);
                 return false;
             }
-            
+
             // 새 비밀번호 길이 확인
             if (req.getNewPassword().length() < 6) {
                 log.warn("비밀번호 변경 실패 - 비밀번호 길이 부족: userId={}", userId);
                 return false;
             }
-            
+
             // 새 비밀번호 해싱 및 저장
             String hashedNewPassword = bcryptPasswordEncoder.encode(req.getNewPassword());
             entity.setUserPwd(hashedNewPassword);
             log.info("비밀번호 변경 성공: userId={}", userId);
         }
-        
+
         userRepository.save(entity);
-        
-        log.info("업데이트 후 사용자 정보: userName={}, email={}, phone={}, profileImage={}", 
+
+        log.info("업데이트 후 사용자 정보: userName={}, email={}, phone={}, profileImage={}",
                 entity.getUserName(), entity.getEmail(), entity.getPhone(), entity.getProfileImage());
-        
+
         return true;
     }
 
@@ -349,7 +346,7 @@ public class UserService {
                 log.warn("비밀번호 확인 실패 - 사용자 없음: userId={}", userId);
                 return false;
             }
-            
+
             boolean isValid = bcryptPasswordEncoder.matches(password, user.getUserPwd());
             if (isValid) {
                 log.info("비밀번호 확인 성공: userId={}", userId);
@@ -375,7 +372,7 @@ public class UserService {
                 log.warn("회원 탈퇴 실패 - 사용자 없음: userId={}", userId);
                 return false;
             }
-            
+
             // 2. 비밀번호 확인 (일반 로그인 사용자의 경우)
             if (password != null && !password.isEmpty()) {
                 if (!bcryptPasswordEncoder.matches(password, user.getUserPwd())) {
@@ -383,12 +380,12 @@ public class UserService {
                     return false;
                 }
             }
-            
+
             // 3. 회원 삭제
             userRepository.deleteById(userId);
             log.info("회원 탈퇴 완료: userId={}", userId);
             return true;
-            
+
         } catch (Exception e) {
             log.error("회원 탈퇴 중 오류 발생: userId={}, error={}", userId, e.getMessage());
             return false;
