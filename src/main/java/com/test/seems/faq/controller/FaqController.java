@@ -41,85 +41,86 @@ public class FaqController {
     public ResponseEntity<Map<String, Object>> FaqListMethod(
             @RequestParam(name = "page", required = false) String page,
             @RequestParam(name = "role", required = false) String role,
+            @RequestParam(name = "userId", required = false) String userId,
             @RequestParam(name = "limit", required = false) String slimit) {
         // 페이징 처리
-        try {
-        int currentPage = 1;
-        if (page != null) {
-            currentPage = Integer.parseInt(page);
-        }
-
-        // 한 페이지에 출력할 목록 갯수 기본 10개로 지정함
-        int limit = 10;
-        if (slimit != null) {
-            limit = Integer.parseInt(slimit);
-        }
-
-        int listCount = FaqService.selectListCount();
-        Paging paging = new Paging(listCount, limit, currentPage, "/faq");
-        paging.calculate();
-
-        //JPA 가 제공하는 Pageable 객체 생성
-        Pageable pageable = PageRequest.of(currentPage - 1, limit, Sort.Direction.DESC, "faqNo");
-
-        // 서비스 모델로 페이징 적용된 목록 조회 요청하고 결과받기 (일반사용자용)
-        ArrayList<Faq> list;
-            System.out.println("📌 현재 role 값: " + role);
-
-            if ("ADMIN".equalsIgnoreCase(role)) {
-                list = FaqService.selectListForAdmin(pageable); // ✅ 관리자용
-            } else {
-                list = FaqService.selectList(pageable); // ✅ 일반 사용자용
-            }
-
-        Map<String, Object> map = new HashMap<>();
-        map.put("list", list);
-        map.put("paging", paging);
-            System.out.println("조회한문의글갯수 : " + list.stream().count());
-
-        return ResponseEntity.ok(map);
-    } catch (Exception e) {
-        e.printStackTrace();
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-    }
-}
-
-    // 내 FAQ 목록 조회 요청 처리용
-    @GetMapping("/faq/my")
-    @ResponseBody
-    public ResponseEntity<Map<String, Object>> getMyFaqs(
-            @RequestParam(name = "userid", required = true) String userid,
-            @RequestParam(name = "page", required = false) String page,
-            @RequestParam(name = "limit", required = false) String slimit) {
-        log.info("/faq/my 요청 : userid={}", userid);
-        
         try {
             int currentPage = 1;
             if (page != null) {
                 currentPage = Integer.parseInt(page);
             }
 
+            // 한 페이지에 출력할 목록 갯수 기본 10개로 지정함
             int limit = 10;
             if (slimit != null) {
                 limit = Integer.parseInt(slimit);
             }
 
-            // 사용자별 FAQ 목록 조회
-            ArrayList<Faq> list = FaqService.selectListByUserid(userid, currentPage, limit);
-            
+            int listCount = FaqService.selectListCount();
+            Paging paging = new Paging(listCount, limit, currentPage, "/faq");
+            paging.calculate();
+
+            //JPA 가 제공하는 Pageable 객체 생성
+            Pageable pageable = PageRequest.of(currentPage - 1, limit, Sort.Direction.DESC, "faqNo");
+
+            // 서비스 모델로 페이징 적용된 목록 조회 요청하고 결과받기 (일반사용자용)
+            ArrayList<Faq> list;
+            System.out.println("📌 현재 role 값: " + role);
+
+            if ("ADMIN".equalsIgnoreCase(role)) {
+                list = FaqService.selectListForAdmin(pageable); // ✅ 관리자용
+            } else {
+                list = FaqService.selectListByUserid(userId, pageable); // ✅ 일반 사용자용
+            }
+
             Map<String, Object> map = new HashMap<>();
             map.put("list", list);
-            map.put("userid", userid);
-            map.put("currentPage", currentPage);
-            map.put("limit", limit);
-            
-            log.info("내 FAQ 목록 조회 성공: {}개", list.size());
+            map.put("paging", paging);
+            System.out.println("조회한문의글갯수 : " + list.stream().count());
+
             return ResponseEntity.ok(map);
         } catch (Exception e) {
-            log.error("내 FAQ 목록 조회 실패: {}", e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
+//
+//    // 내 FAQ 목록 조회 요청 처리용
+//    @GetMapping("/faq/my")
+//    @ResponseBody
+//    public ResponseEntity<Map<String, Object>> getMyFaqs(
+//            @RequestParam(name = "userid", required = true) String userid,
+//            @RequestParam(name = "page", required = false) String page,
+//            @RequestParam(name = "limit", required = false) String slimit) {
+//        log.info("/faq/my 요청 : userid={}", userid);
+//
+//        try {
+//            int currentPage = 1;
+//            if (page != null) {
+//                currentPage = Integer.parseInt(page);
+//            }
+//
+//            int limit = 10;
+//            if (slimit != null) {
+//                limit = Integer.parseInt(slimit);
+//            }
+//
+//            // 사용자별 FAQ 목록 조회
+//            ArrayList<Faq> list = FaqService.selectListByUserid(userid, currentPage, limit);
+//
+//            Map<String, Object> map = new HashMap<>();
+//            map.put("list", list);
+//            map.put("userid", userid);
+//            map.put("currentPage", currentPage);
+//            map.put("limit", limit);
+//
+//            log.info("내 FAQ 목록 조회 성공: {}개", list.size());
+//            return ResponseEntity.ok(map);
+//        } catch (Exception e) {
+//            log.error("내 FAQ 목록 조회 실패: {}", e.getMessage());
+//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+//        }
+//    }
 
 
     //Faq글 상세보기 요청 처리용 : SELECT 쿼리문 실행 요청임 => GetMapping 임
@@ -181,7 +182,7 @@ public class FaqController {
             @PathVariable int faqNo,
             @ModelAttribute Faq faq,
             @RequestParam(name="deleteFlag", required=false) String delFlag){
-                log.info("FaqUpdateMethod : " + faq);
+        log.info("FaqUpdateMethod : " + faq);
 
         if(FaqService.updateFaq(faq) > 0) {
             // Faq글 수정 성공시, 관리자 상세보기 페이지로 이동 처리

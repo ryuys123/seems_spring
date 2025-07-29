@@ -57,9 +57,9 @@ public interface FaqRepository extends JpaRepository<FaqEntity, Integer> {
 
     // 사용자별 FAQ 목록 조회 (페이징 적용)
     Page<FaqEntity> findByUseridOrderByFaqNoDesc(String userid, Pageable pageable);
-    
-    // 사용자별 FAQ 목록 조회 (최근활동용)
-    List<FaqEntity> findByUseridOrderByFaqDateDesc(String userid);
+
+//    // 사용자별 FAQ 목록 조회 (최근활동용)
+//    List<FaqEntity> findByUseridOrderByFaqDateDesc(String userid);
 }
 
 

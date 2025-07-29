@@ -55,20 +55,16 @@ public class FaqService  {
     public int selectListCount() {
         return (int)faqRepository.count();
     }
-
-    //사용자용 게시글 조회
-    public ArrayList<Faq> selectList(Pageable pageable) {
-        return toList(faqRepository.findAll(pageable));
-    }
+//
+//    //사용자용 게시글 조회
+//    public ArrayList<Faq> selectList(Pageable pageable) {
+//        return toList(faqRepository.findAll(pageable));
+//    }
 
     // 사용자별 FAQ 목록 조회
-    public ArrayList<Faq> selectListByUserid(String userid, int currentPage, int limit) {
-        log.info("사용자별 FAQ 목록 조회: userid={}, page={}, limit={}", userid, currentPage, limit);
-        
-        // 페이징을 위한 Pageable 객체 생성
-        Pageable pageable = PageRequest.of(currentPage - 1, limit, Sort.Direction.DESC, "faqNo");
-        
-        // 사용자별 FAQ 목록 조회
+    public ArrayList<Faq> selectListByUserid(String userid, Pageable pageable) { // Pageable 객체를 받도록 수정
+        log.info("사용자별 FAQ 목록 조회: userid={}, pageable={}", userid, pageable);
+
         Page<FaqEntity> page = faqRepository.findByUseridOrderByFaqNoDesc(userid, pageable);
         return toList(page);
     }
@@ -179,9 +175,9 @@ public class FaqService  {
         }
 
         log.info("🔒 자동 종료된 FAQ 수: {}", closedCount);
-        }
+    }
 
-        // 서버 시작시에도 status 변경 실행
+    // 서버 시작시에도 status 변경 실행
     @PostConstruct
     public void initAutoCloseOnStartup() {
         log.info("🚀 서버 시작 시 자동 FAQ 종료 작업 실행 중...");
