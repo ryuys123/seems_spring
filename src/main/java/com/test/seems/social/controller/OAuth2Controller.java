@@ -6,8 +6,7 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.security.SecureRandom;
-import java.util.Base64;
+import java.util.*;
 
 @Slf4j
 @RestController
@@ -44,18 +43,17 @@ public class OAuth2Controller {
     @GetMapping("/oauth2/authorization/{provider}")
     public void oauth2Authorization(@PathVariable String provider, HttpServletResponse response) throws IOException {
         log.info("OAuth2 인증 요청: {}", provider);
-        log.info("사용할 Google 클라이언트 ID: {}", googleClientId);
         
         // 각 소셜 로그인 제공자의 인증 URL로 리다이렉트
         String authUrl = "";
         switch (provider.toLowerCase()) {
             case "google":
-                // Google OAuth2 - 임시로 일반 방식 사용 (PKCE 제거)
+                // Google OAuth2 - 일반 방식 (PKCE 제거)
                 authUrl = "https://accounts.google.com/o/oauth2/v2/auth?" +
                         "client_id=" + googleClientId +
                         "&redirect_uri=" + googleRedirectUri +
                         "&response_type=code" +
-                        "&scope=" + googleScope.replace(" ", "%20") +
+                        "&scope=" + googleScope +
                         "&state=" + provider;
                 break;
             case "kakao":
@@ -64,8 +62,7 @@ public class OAuth2Controller {
                         "&redirect_uri=" + kakaoRedirectUri +
                         "&response_type=code" +
                         "&scope=" + kakaoScope +
-                        "&state=" + provider +
-                        "&prompt=login";
+                        "&state=" + provider;
                 break;
             case "naver":
                 authUrl = "https://nid.naver.com/oauth2.0/authorize?" +
@@ -82,25 +79,5 @@ public class OAuth2Controller {
         
         log.info("OAuth2 인증 URL로 리다이렉트: {}", authUrl);
         response.sendRedirect(authUrl);
-    }
-    
-    // PKCE용 Code Verifier 생성
-    private String generateCodeVerifier() {
-        SecureRandom secureRandom = new SecureRandom();
-        byte[] codeVerifier = new byte[32];
-        secureRandom.nextBytes(codeVerifier);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(codeVerifier);
-    }
-    
-    // PKCE용 Code Challenge 생성
-    private String generateCodeChallenge(String codeVerifier) {
-        try {
-            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(codeVerifier.getBytes("UTF-8"));
-            return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
-        } catch (Exception e) {
-            log.error("Code challenge 생성 실패", e);
-            return "";
-        }
     }
 } 

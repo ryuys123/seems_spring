@@ -14,6 +14,8 @@ import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
@@ -41,7 +43,7 @@ public class SocialAuthController {
 
     // 세션 스토어 (실제 운영에서는 Redis 사용 권장)
     private final Map<String, SocialSessionData> sessionStore = new ConcurrentHashMap<>();
-
+    
     // 세션 데이터 클래스
     @Data
     @Builder
@@ -62,38 +64,64 @@ public class SocialAuthController {
     // OAuth2 인증 요청 처리
     @GetMapping("/oauth2/authorization/{provider}")
     public ResponseEntity<?> oauth2Authorization(@PathVariable String provider) {
-        // 각 소셜 로그인 제공자의 인증 URL로 리다이렉트
-        String authUrl = "";
-        switch (provider.toLowerCase()) {
-            case "google":
-                authUrl = "https://accounts.google.com/o/oauth2/v2/auth?" +
-                        "client_id=879071102220-nueg754t7m080rhmufebf5rejv29n3lt.apps.googleusercontent.com" +
-                        "&redirect_uri=http://localhost:8888/seems/auth/social/callback" +
+        try {
+            log.info("OAuth2 인증 요청: {}", provider);
+            
+            String authUrl = "";
+            switch (provider) {
+                case "google":
+                    // 일반 OAuth2 방식 (PKCE 제거)
+                    authUrl = String.format(
+                        "https://accounts.google.com/o/oauth2/v2/auth" +
+                        "?client_id=%s" +
+                        "&redirect_uri=%s" +
                         "&response_type=code" +
-                        "&scope=openid%20email%20profile" +
-                        "&state=" + provider;
-                break;
-            case "kakao":
-                authUrl = "https://kauth.kakao.com/oauth/authorize?" +
-                        "client_id=78b84e63c94b938a6a1e31afd09c4522" +
-                        "&redirect_uri=http://localhost:8888/seems/auth/social/callback" +
+                        "&scope=openid%%20email%%20profile" +
+                        "&state=%s",
+                        "879071102220-nueg754t7m080rhmufebf5rejv29n3lt.apps.googleusercontent.com",
+                        "http://localhost:8888/seems/auth/social/callback",
+                        provider
+                    );
+                    break;
+                case "naver":
+                    authUrl = String.format(
+                        "https://nid.naver.com/oauth2.0/authorize" +
+                        "?client_id=%s" +
+                        "&redirect_uri=%s" +
                         "&response_type=code" +
-                        "&state=" + provider;
-                break;
-            case "naver":
-                authUrl = "https://nid.naver.com/oauth2.0/authorize?" +
-                        "client_id=uKWQhJvKZ2Po7xv32GkC" +
-                        "&redirect_uri=http://localhost:8888/seems/auth/social/callback" +
+                        "&state=%s",
+                        "YOUR_NAVER_CLIENT_ID",
+                        "http://localhost:8888/seems/auth/social/callback",
+                        provider
+                    );
+                    break;
+                case "kakao":
+                    authUrl = String.format(
+                        "https://kauth.kakao.com/oauth/authorize" +
+                        "?client_id=%s" +
+                        "&redirect_uri=%s" +
                         "&response_type=code" +
-                        "&state=" + provider;
-                break;
-            default:
-                return ResponseEntity.badRequest().body("지원하지 않는 소셜 로그인입니다.");
+                        "&state=%s",
+                        "YOUR_KAKAO_CLIENT_ID",
+                        "http://localhost:8888/seems/auth/social/callback",
+                        provider
+                    );
+                    break;
+                default:
+                    return ResponseEntity.badRequest().body("지원하지 않는 소셜 로그인입니다: " + provider);
+            }
+            
+            log.info("OAuth2 인증 URL로 리다이렉트: {}", authUrl);
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .header(HttpHeaders.LOCATION, authUrl)
+                    .build();
+                    
+        } catch (Exception e) {
+            log.error("OAuth2 인증 URL 생성 실패: {}", provider, e);
+            return ResponseEntity.internalServerError().body("인증 URL 생성에 실패했습니다.");
         }
-        
-        return ResponseEntity.ok().body("{\"authUrl\":\"" + authUrl + "\"}");
     }
-
+    
     // 소셜 로그인 콜백 처리 (OAuth2 리다이렉트 처리)
     @GetMapping("/social/callback")
     public void socialCallback(

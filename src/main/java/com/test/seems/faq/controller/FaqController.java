@@ -84,6 +84,43 @@ public class FaqController {
     }
 }
 
+    // 내 FAQ 목록 조회 요청 처리용
+    @GetMapping("/faq/my")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> getMyFaqs(
+            @RequestParam(name = "userid", required = true) String userid,
+            @RequestParam(name = "page", required = false) String page,
+            @RequestParam(name = "limit", required = false) String slimit) {
+        log.info("/faq/my 요청 : userid={}", userid);
+        
+        try {
+            int currentPage = 1;
+            if (page != null) {
+                currentPage = Integer.parseInt(page);
+            }
+
+            int limit = 10;
+            if (slimit != null) {
+                limit = Integer.parseInt(slimit);
+            }
+
+            // 사용자별 FAQ 목록 조회
+            ArrayList<Faq> list = FaqService.selectListByUserid(userid, currentPage, limit);
+            
+            Map<String, Object> map = new HashMap<>();
+            map.put("list", list);
+            map.put("userid", userid);
+            map.put("currentPage", currentPage);
+            map.put("limit", limit);
+            
+            log.info("내 FAQ 목록 조회 성공: {}개", list.size());
+            return ResponseEntity.ok(map);
+        } catch (Exception e) {
+            log.error("내 FAQ 목록 조회 실패: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
 
     //Faq글 상세보기 요청 처리용 : SELECT 쿼리문 실행 요청임 => GetMapping 임
     @GetMapping("/faq/detail/{faqNo}")

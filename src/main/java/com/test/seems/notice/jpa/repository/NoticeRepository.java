@@ -50,6 +50,9 @@ public interface NoticeRepository extends JpaRepository<NoticeEntity, Integer> {
     // importance impEndDate 지나면 N으로 변경
     List<NoticeEntity> findByImportanceAndImpEndDateBefore(String importance, Date date);
 
+    // 대시보드용 최신 공지사항 조회 (긴급 우선, 없으면 일반)
+    NoticeEntity findFirstByImportanceOrderByNoticeDateDescNoticeNoDesc(String importance);
+
 }
 
 /* JpaRepository 가 제공하는 기본 메소드 정리

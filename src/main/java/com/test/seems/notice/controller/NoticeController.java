@@ -447,4 +447,17 @@ public class NoticeController {
 		}
 	}
 
+	// 대시보드용 최신 공지사항 조회 (긴급 우선, 없으면 일반)
+	@GetMapping("/notice/latest")
+	public ResponseEntity<Notice> getLatestNotice() {
+		Notice latestNotice = noticeService.selectLatestNotice();
+		if (latestNotice != null) {
+			log.info("대시보드용 최신 공지사항 조회 성공: {}", latestNotice.getTitle());
+			return ResponseEntity.ok(latestNotice);
+		} else {
+			log.info("대시보드용 최신 공지사항 조회: 공지사항 없음");
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+		}
+	}
+
 }

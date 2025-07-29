@@ -1,6 +1,5 @@
 package com.test.seems.emotion.jpa.repository;
 
-import com.test.seems.adminDashboard.model.dto.EmotionStats;
 import com.test.seems.emotion.jpa.entity.EmotionLog;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -13,6 +12,7 @@ import java.util.Optional;
 
 @Repository
 public interface EmotionLogRepository extends JpaRepository<EmotionLog, Long> {
+    // 사용자별 감정 로그 조회 (최근활동용) - userId 속성 사용
     List<EmotionLog> findByUserIdOrderByCreatedAtDesc(String userId);
     
     // 오늘의 감정 조회 (오늘 날짜의 최신 감정)

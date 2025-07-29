@@ -15,4 +15,7 @@ public interface PersonalityResultRepository extends JpaRepository<PersonalityTe
     Optional<PersonalityTestResultEntity> findTopByUserIdOrderByCreatedAtDesc(String userId);
     // 특정 사용자의 모든 결과를 최신순으로 가져오는 메서드
     List<PersonalityTestResultEntity> findAllByUserIdOrderByCreatedAtDesc(String userId);
+    
+    // 사용자별 성격검사 결과 조회 (최근활동용) - userId 속성 사용
+    List<PersonalityTestResultEntity> findByUserIdOrderByCreatedAtDesc(String userId);
 }

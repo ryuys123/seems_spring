@@ -74,7 +74,7 @@ public class SocialLoginService {
     // Google OAuth2 사용자 정보 가져오기
     public Map<String, String> getGoogleUserInfo(String code) {
         try {
-            // 1. 인증 코드로 액세스 토큰 요청
+            // 1. 인증 코드로 액세스 토큰 요청 (일반 OAuth2 방식)
             String tokenUrl = "https://oauth2.googleapis.com/token";
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
