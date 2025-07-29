@@ -17,7 +17,7 @@ import java.util.Map;
 @RestController
 public class ChatController {
 
-    @Value("${python.ai.server.url}")
+    @Value("${python.api.url}")
     private String pythonAiServerUrl;
 
     private final RestTemplate restTemplate;

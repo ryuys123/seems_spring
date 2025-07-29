@@ -19,7 +19,7 @@ public class AIServiceImpl implements AIService {
 
     private final WebClient webClient;
 
-    @Value("${python.ai.server.url}")
+    @Value("${python.api.url}")
     private String aiServerUrl;
 
     @Override

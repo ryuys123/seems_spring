@@ -97,6 +97,9 @@ public class JWTFilter extends OncePerRequestFilter {
         if (url.startsWith("/seems/api/user/verification")) {
             return true;
         }
+        if (url.startsWith("/seems/api/user/activities")) {
+            return true;
+        }
         if (url.startsWith("/seems/login")) {
             return true;
         }
@@ -125,6 +128,12 @@ public class JWTFilter extends OncePerRequestFilter {
             return true;
         }
         if (url.startsWith("/notice/")) {
+            return true;
+        }
+        if (url.startsWith("/seems/notice/latest")) {
+            return true;
+        }
+        if (url.startsWith("/seems/notice/ntop3")) {
             return true;
         }
         if (url.startsWith("/admin/")) {
@@ -178,6 +187,7 @@ public class JWTFilter extends OncePerRequestFilter {
         if (url.startsWith("/seems/api/reissue")) {
             return true;
         }
+
         if (url.startsWith("/seems/reissue")) {
             return true;
         }

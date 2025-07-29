@@ -1,4 +1,5 @@
 
+
 package com.test.seems.counseling.jpa.entity;
 
 import com.test.seems.user.jpa.entity.UserEntity;
@@ -6,12 +7,10 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
-import lombok.Setter;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.time.LocalDateTime;
 import java.util.Date;
 
 @Entity

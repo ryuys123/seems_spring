@@ -292,4 +292,25 @@ public class NoticeService  {
 
 		log.info("✅ 중요공지 'Y→N' 갱신된 개수: {}", expiredList.size());
 	}
+
+	// 대시보드용 최신 공지사항 조회 (긴급 우선, 없으면 일반)
+	public Notice selectLatestNotice() {
+		// 1. 긴급 공지사항 중 가장 최근 것 조회
+		NoticeEntity urgentNotice = noticeRepository.findFirstByImportanceOrderByNoticeDateDescNoticeNoDesc("Y");
+		
+		// 2. 일반 공지사항 중 가장 최근 것 조회
+		NoticeEntity normalNotice = noticeRepository.findFirstByImportanceOrderByNoticeDateDescNoticeNoDesc("N");
+		
+		// 3. 긴급 공지사항이 있으면 긴급 공지사항 반환, 없으면 일반 공지사항 반환
+		if (urgentNotice != null) {
+			log.info("대시보드용 최신 공지사항 조회: 긴급 공지사항 - {}", urgentNotice.getTitle());
+			return urgentNotice.toDto();
+		} else if (normalNotice != null) {
+			log.info("대시보드용 최신 공지사항 조회: 일반 공지사항 - {}", normalNotice.getTitle());
+			return normalNotice.toDto();
+		} else {
+			log.info("대시보드용 최신 공지사항 조회: 공지사항 없음");
+			return null; // 공지사항이 없는 경우
+		}
+	}
 }

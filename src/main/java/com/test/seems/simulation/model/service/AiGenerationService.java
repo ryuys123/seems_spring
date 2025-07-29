@@ -17,7 +17,7 @@ import java.util.Map;
 @Slf4j
 public class AiGenerationService {
 
-    @Value("${python.ai.server.url}")
+    @Value("${python.api.url}")
     private String aiServerUrl;
 
     private final RestTemplate restTemplate = new RestTemplate();

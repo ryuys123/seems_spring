@@ -16,4 +16,7 @@ public interface PsychologicalImageResultRepository extends JpaRepository<Psycho
     Optional<PsychologicalTestResultEntity> findByUserIdAndResultId(String userId, Long resultId);
     Optional<PsychologicalTestResultEntity> findTop1ByUserIdOrderByCreatedAtDesc(String userId);
     boolean existsByUserId(String userId);
+    
+    // 사용자별 이미지 심리검사 결과 조회 (최근활동용) - userId 속성 사용
+    List<PsychologicalTestResultEntity> findByUserIdOrderByCreatedAtDesc(String userId);
 }

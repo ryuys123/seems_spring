@@ -11,6 +11,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,6 +59,18 @@ public class FaqService  {
     //사용자용 게시글 조회
     public ArrayList<Faq> selectList(Pageable pageable) {
         return toList(faqRepository.findAll(pageable));
+    }
+
+    // 사용자별 FAQ 목록 조회
+    public ArrayList<Faq> selectListByUserid(String userid, int currentPage, int limit) {
+        log.info("사용자별 FAQ 목록 조회: userid={}, page={}, limit={}", userid, currentPage, limit);
+        
+        // 페이징을 위한 Pageable 객체 생성
+        Pageable pageable = PageRequest.of(currentPage - 1, limit, Sort.Direction.DESC, "faqNo");
+        
+        // 사용자별 FAQ 목록 조회
+        Page<FaqEntity> page = faqRepository.findByUseridOrderByFaqNoDesc(userid, pageable);
+        return toList(page);
     }
 
     // 관리자용 게시글 조회

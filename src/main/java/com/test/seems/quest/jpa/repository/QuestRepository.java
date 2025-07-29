@@ -22,6 +22,11 @@ public interface QuestRepository extends JpaRepository<QuestEntity, Long> {
     List<QuestEntity> findByUserIdAndIsCompleted(String userId, Integer isCompleted);
     
     /**
+     * 사용자의 완료된 퀘스트 조회 (최근활동용)
+     */
+    List<QuestEntity> findByUserIdAndIsCompletedOrderByCreatedAtDesc(String userId, Integer isCompleted);
+    
+    /**
      * 사용자의 완료된 퀘스트 개수 조회
      */
     @Query("SELECT COUNT(q) FROM QuestEntity q WHERE q.userId = :userId AND q.isCompleted = 1")

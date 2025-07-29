@@ -1,7 +1,6 @@
 package com.test.seems.counseling.jpa.entity;
 
-import com.test.seems.user.jpa.entity.UserEntity; // UserEntity 경로 확인 필요
-import com.test.seems.guidance.jpa.entity.GuidanceTypeEntity; // 추가
+import com.test.seems.guidance.jpa.entity.GuidanceTypeEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
