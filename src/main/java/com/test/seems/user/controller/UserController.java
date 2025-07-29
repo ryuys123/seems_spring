@@ -9,6 +9,9 @@ import com.test.seems.user.model.dto.User;
 import com.test.seems.user.model.dto.UserInfoResponse;
 import com.test.seems.user.model.dto.UserDeleteRequest;
 import com.test.seems.user.model.service.UserService;
+import com.test.seems.user.jpa.entity.UserEntity;
+import com.test.seems.social.jpa.entity.SocialLoginEntity;
+import com.test.seems.social.jpa.repository.SocialLoginRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +35,7 @@ import java.sql.Date;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 @Slf4j
 @RestController
@@ -285,8 +289,61 @@ public class UserController {
         }
     }
 
+    /**
+     * 기존 계정에 소셜 계정 연동
+     */
+    @PostMapping("/api/user/link-social-account")
+    public ResponseEntity<?> linkSocialAccount(@RequestBody Map<String, String> request) {
+        try {
+            String userId = request.get("userId");
+            String socialId = request.get("socialId");
+            String socialProvider = request.get("socialProvider");
+            
+            log.info("소셜 계정 연동 요청: userId={}, socialId={}, socialProvider={}", userId, socialId, socialProvider);
+            
+            if (userId == null || socialId == null || socialProvider == null) {
+                log.error("소셜 계정 연동 실패 - 필수 파라미터 누락: userId={}, socialId={}, socialProvider={}", userId, socialId, socialProvider);
+                return ResponseEntity.badRequest().body("필수 파라미터가 누락되었습니다.");
+            }
+            
+            // 사용자 존재 확인
+            UserEntity userEntity = userRepository.findByUserId(userId);
+            if (userEntity == null) {
+                log.error("소셜 계정 연동 실패 - 사용자를 찾을 수 없음: userId={}", userId);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("사용자를 찾을 수 없습니다.");
+            }
+            
+            // 이미 연동된 소셜 계정인지 확인
+            Optional<SocialLoginEntity> existingSocialLogin = socialLoginRepository.findByProviderAndSocialId(socialProvider, socialId);
+            if (existingSocialLogin.isPresent()) {
+                log.warn("소셜 계정 연동 실패 - 이미 연동된 계정: socialId={}, socialProvider={}", socialId, socialProvider);
+                return ResponseEntity.badRequest().body("이미 연동된 소셜 계정입니다.");
+            }
+            
+            // 소셜 계정 연동 정보 저장
+            SocialLoginEntity socialLogin = SocialLoginEntity.builder()
+                    .user(userEntity)
+                    .provider(socialProvider)
+                    .socialId(socialId)
+                    .socialEmail(null) // 이메일 정보 제거
+                    .linkedAt(new java.util.Date())
+                    .build();
+            
+            socialLoginRepository.save(socialLogin);
+            log.info("소셜 계정 연동 완료: userId={}, provider={}, socialId={}", userId, socialProvider, socialId);
+            
+            return ResponseEntity.ok().body("소셜 계정이 성공적으로 연동되었습니다.");
+            
+        } catch (Exception e) {
+            log.error("소셜 계정 연동 중 오류 발생", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("소셜 계정 연동 중 오류가 발생했습니다.");
+        }
+    }
+
     // 서비스 모델과 연결 처리 (의존성 주입, 자동 연결 처리)
     private final UserService userService;
+    private final com.test.seems.user.jpa.repository.UserRepository userRepository;
+    private final SocialLoginRepository socialLoginRepository;
 
     @Value("${file.upload-dir}")
     private String uploadDir;
@@ -308,7 +365,7 @@ public class UserController {
     // 서버상의 파일 저장 폴더 지정을 위해서 request 객체가 필요함
     // 업로드되는 파일은 따로 전송받음 => multipart 방식으로 전송옴 => 스프링이 제공하는 MutipartFile 클래스 사용해서 받음
     // 비밀번호(패스워드) 암호화 처리 기능 추가
-    @PostMapping("user/signup")
+    @PostMapping(value = "user/signup", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE, MediaType.APPLICATION_FORM_URLENCODED_VALUE})
     public ResponseEntity userInsertMethod(
             @RequestParam(value = "userId", required = false) String userId,
             @RequestParam(value = "userName", required = false) String userName,
@@ -316,26 +373,22 @@ public class UserController {
             @RequestParam(value = "userPwd", required = false) String userPwd,
             @RequestParam(value = "email", required = false) String email,
             @RequestParam(name="profileImage", required = false) MultipartFile ufile,
-            @RequestBody(required = false) User jsonUser) {
+            @RequestParam(value = "socialId", required = false) String socialId,
+            @RequestParam(value = "socialProvider", required = false) String socialProvider) {
         
         try {
-            // JSON으로 받은 경우와 FormData로 받은 경우 모두 처리
-            User user;
-            if (jsonUser != null) {
-                // JSON 방식으로 받은 경우
-                user = jsonUser;
-                log.info("JSON 방식 회원가입 요청: {}", user);
-            } else {
-                // FormData 방식으로 받은 경우
-                user = User.builder()
-                        .userId(userId)
-                        .userName(userName)
-                        .phone(phone)
-                        .userPwd(userPwd)
-                        .email(email)
-                        .build();
-                log.info("FormData 방식 회원가입 요청: {}", user);
-            }
+            log.info("회원가입 요청 시작 - userId: {}, userName: {}, phone: {}, socialId: {}, socialProvider: {}", 
+                    userId, userName, phone, socialId, socialProvider);
+            
+            // FormData 방식으로 받은 경우만 처리
+            User user = User.builder()
+                    .userId(userId)
+                    .userName(userName)
+                    .phone(phone)
+                    .userPwd(userPwd)
+                    .email(email)
+                    .build();
+            log.info("FormData 방식 회원가입 요청: {}", user);
 
             // 패스워드 암호화 처리
             user.setUserPwd(bcryptPasswordEncoder.encode(user.getUserPwd()));
@@ -379,11 +432,68 @@ public class UserController {
             user.setAdminYn("N");
             log.info("userInsertMethod : " + user);
 
+            // 실제 DB 저장
             userService.insertUser(user);
+            
+            // 소셜 계정 연동 정보가 있으면 TB_SOCIAL_LOGIN에 저장
+            log.info("소셜 계정 연동 시도: userId={}, socialId={}, socialProvider={}", userId, socialId, socialProvider);
+            if (socialId != null && socialProvider != null) {
+                try {
+                    log.info("사용자 엔티티 조회 시작: userId={}", userId);
+                    UserEntity userEntity = userRepository.findByUserId(userId);
+                    if (userEntity == null) {
+                        log.error("사용자 엔티티를 찾을 수 없음: userId={}", userId);
+                        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("사용자 정보를 찾을 수 없습니다.");
+                    }
+                    log.info("사용자 엔티티 조회 성공: userId={}, userName={}", userId, userEntity.getUserName());
+                    
+                    SocialLoginEntity socialLogin = SocialLoginEntity.builder()
+                            .user(userEntity)
+                            .provider(socialProvider)
+                            .socialId(socialId)
+                            .socialEmail(null) // 이메일 정보 제거
+                            .linkedAt(new java.util.Date())
+                            .build();
+                    log.info("소셜 로그인 엔티티 생성 완료: {}", socialLogin);
+                    
+                    socialLoginRepository.save(socialLogin);
+                    log.info("소셜 계정 연동 정보 저장 완료: userId={}, provider={}, socialId={}", userId, socialProvider, socialId);
+                } catch (Exception e) {
+                    log.error("소셜 계정 연동 정보 저장 실패: userId={}, error={}", userId, e.getMessage(), e);
+                    // 소셜 연동 실패해도 회원가입은 성공으로 처리
+                }
+            } else {
+                log.info("소셜 계정 연동 정보가 없음: socialId={}, socialProvider={}", socialId, socialProvider);
+            }
+            
             return ResponseEntity.status(HttpStatus.OK).build();
             
         } catch (Exception e) {
             log.error("회원가입 오류", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("회원가입 실패");
+        }
+    }
+
+    // JSON 방식 회원가입 (별도 엔드포인트)
+    @PostMapping(value = "user/signup/json", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity userInsertMethodJson(@RequestBody User user) {
+        try {
+            log.info("JSON 방식 회원가입 요청: {}", user);
+            
+            // 패스워드 암호화 처리
+            user.setUserPwd(bcryptPasswordEncoder.encode(user.getUserPwd()));
+            log.info("after encode : " + user.getUserPwd() + ", length : " + user.getUserPwd().length());
+
+            //가입정보 추가 입력 처리
+            user.setStatus(1);
+            user.setAdminYn("N");
+            log.info("userInsertMethodJson : " + user);
+
+            userService.insertUser(user);
+            return ResponseEntity.status(HttpStatus.OK).build();
+            
+        } catch (Exception e) {
+            log.error("JSON 회원가입 오류", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("회원가입 실패");
         }
     }
