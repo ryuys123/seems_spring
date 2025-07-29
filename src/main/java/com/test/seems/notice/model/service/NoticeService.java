@@ -108,7 +108,13 @@ public class NoticeService  {
 //	}
 
 	public ArrayList<Notice> selectList(Pageable pageable) {
-		return toList(noticeRepository.findAll(pageable));
+		List<NoticeEntity> entityList = noticeRepository.findAllByOrderByImportanceDescNoticeDateDesc(pageable).getContent();
+
+		ArrayList<Notice> dtoList = new ArrayList<>();
+		for (NoticeEntity entity : entityList) {
+			dtoList.add(entity.toDto());
+		}
+		return dtoList;
 	}
 
 
