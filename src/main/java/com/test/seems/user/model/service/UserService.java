@@ -2,6 +2,8 @@ package com.test.seems.user.model.service;
 
 import com.test.seems.quest.jpa.entity.UserPointsEntity;
 import com.test.seems.quest.jpa.repository.UserPointsRepository;
+import com.test.seems.social.jpa.entity.SocialLoginEntity;
+import com.test.seems.social.jpa.repository.SocialLoginRepository;
 import com.test.seems.user.jpa.entity.UserEntity;
 import com.test.seems.user.jpa.repository.UserRepository;
 import com.test.seems.user.model.dto.User;
@@ -29,6 +31,9 @@ public class UserService {
 
     @Autowired
     private final UserPointsRepository userPointsRepository; // quest 패키지의 UserPointsRepository 주입
+
+    @Autowired
+    private final SocialLoginRepository socialLoginRepository; // 소셜 로그인 정보 삭제용
 
     @Autowired
     private BCryptPasswordEncoder bcryptPasswordEncoder;
@@ -381,7 +386,15 @@ public class UserService {
                 }
             }
 
-            // 3. 회원 삭제
+            // 3. 소셜 연동 정보 먼저 삭제 (있는 경우)
+            try {
+                socialLoginRepository.deleteByUser_UserId(userId);
+                log.info("소셜 연동 정보 삭제 완료: userId={}", userId);
+            } catch (Exception e) {
+                log.warn("소셜 연동 정보 삭제 중 오류 (무시): userId={}, error={}", userId, e.getMessage());
+            }
+
+            // 4. 회원 삭제
             userRepository.deleteById(userId);
             log.info("회원 탈퇴 완료: userId={}", userId);
             return true;
@@ -399,7 +412,9 @@ public class UserService {
     public boolean deleteSocialUser(String userId) {
         try {
             // 1. 소셜 연동 정보 먼저 삭제
-            // socialLoginRepository.deleteByUser_UserId(userId); // socialLoginRepository가 없으므로 주석 처리
+            socialLoginRepository.deleteByUser_UserId(userId);
+            log.info("소셜 연동 정보 삭제 완료: userId={}", userId);
+            
             // 2. 사용자 정보 삭제
             userRepository.deleteById(userId);
             log.info("소셜 회원 탈퇴 완료: userId={}", userId);
