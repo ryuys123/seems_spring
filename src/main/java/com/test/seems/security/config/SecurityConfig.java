@@ -149,7 +149,8 @@ public class SecurityConfig implements WebMvcConfigurer {
                         // .png 파일은 인증없이 접근 허용함
                         .requestMatchers("/*.png").permitAll()
                         // 로그인, 토큰 재발급, 회원가입도 인증없이 접근 허용함
-                        .requestMatchers("/", "/login", "/reissue", "/api/reissue", "seems/user/signup", "seems/user/idchk", "/admin",
+                        .requestMatchers("/", "/login", "/reissue", "/api/reissue", "seems/user/signup", "/user/signup", "/user/signup/json", "seems/user/idchk", "/admin",
+                                "/api/user/link-social-account",
                                 "/seems/images/**",
                                 "/seems/css/**",
                                 "/seems/js/**",
