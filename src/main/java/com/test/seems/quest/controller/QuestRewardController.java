@@ -74,7 +74,7 @@ public class QuestRewardController {
         }
     }
     /**
-     * 뱃지 장착 API
+     * 뱃지 장착
      */
     @PostMapping("/user/equip-badge")
     public ResponseEntity<?> equipBadge(@RequestParam String userId, @RequestBody Map<String, Object> request) {
@@ -87,6 +87,22 @@ public class QuestRewardController {
         } catch (Exception e) {
             log.error("Failed to equip badge for userId: {}, rewardId: {}", userId, request.get("rewardId"), e);
             return ResponseEntity.internalServerError().body("뱃지 장착 중 오류가 발생했습니다.");
+        }
+    }
+
+    /**
+     * 뱃지 해제
+     */
+    @PostMapping("/user/unequip-badge")
+    public ResponseEntity<?> unequipBadge(@RequestParam String userId, @RequestBody Map<String, Object> request) {
+        try {
+            Long rewardId = Long.valueOf(request.get("rewardId").toString());
+            questRewardService.unequipBadge(userId, rewardId); // 새로운 서비스 메소드 호출
+            List<Map<String, Object>> ownedBadges = questRewardService.getOwnedRewardIdsWithEquipped(userId);
+            return ResponseEntity.ok(ownedBadges);
+        } catch (Exception e) {
+            log.error("Failed to unequip badge for userId: {}, rewardId: {}", userId, request.get("rewardId"), e);
+            return ResponseEntity.internalServerError().body("뱃지 해제 중 오류가 발생했습니다.");
         }
     }
     /**

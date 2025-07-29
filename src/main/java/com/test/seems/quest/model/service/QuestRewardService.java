@@ -115,6 +115,15 @@ public class QuestRewardService {
     }
 
     /**
+     * 뱃지 해제
+     */
+    @Transactional
+    public void unequipBadge(String userId, Long rewardId) {
+        userRewardRepository.updateEquippedByUserIdAndRewardId(userId, rewardId, 0); // isEquipped를 0으로 설정
+        log.info("Badge unequipped - userId: {}, rewardId: {}", userId, rewardId);
+    }
+
+    /**
      * (변경) 뱃지 구매 - isEquipped 포함 응답
      */
     @Transactional

@@ -5,6 +5,8 @@ import com.test.seems.user.jpa.entity.UserEntity;
 import com.test.seems.user.jpa.repository.UserRepository;
 import com.test.seems.user.model.dto.User;
 import com.test.seems.user.model.dto.UserInfoResponse;
+import com.test.seems.quest.jpa.repository.UserPointsRepository; // quest 패키지의 UserPointsRepository 임포트
+import com.test.seems.quest.jpa.entity.UserPointsEntity; // quest 패키지의 UserPointsEntity 임포트
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +29,9 @@ public class UserService {
 
     @Autowired
     private final UserRepository userRepository;
+
+    @Autowired
+    private final UserPointsRepository userPointsRepository; // quest 패키지의 UserPointsRepository 주입
 
     @Autowired
     private BCryptPasswordEncoder bcryptPasswordEncoder;
@@ -138,7 +143,18 @@ public class UserService {
 
         //jpa 제공 메소드 사용
         //save(entity) : entity => 실패하면 null 리턴
-        return userRepository.save(user.toEntity()).toDto();
+        User savedUser = userRepository.save(user.toEntity()).toDto();
+
+        // TB_USER_POINTS에 초기 포인트(0) 삽입 (quest 모듈의 UserPointsEntity 사용)
+        if (savedUser != null) {
+            UserPointsEntity userPointsEntity = UserPointsEntity.builder()
+                    .userId(savedUser.getUserId())
+                    .points(0) // 초기 포인트 0으로 설정
+                    .build();
+            userPointsRepository.save(userPointsEntity);
+            log.info("TB_USER_POINTS에 초기 포인트 삽입 완료: userId={}, points={}", savedUser.getUserId(), 0);
+        }
+        return savedUser;
     }
 
     @Transactional
