@@ -26,6 +26,7 @@ public class UserVerificationService {
 
     private final UserRepository userRepository;
     private final RestTemplate restTemplate;
+    private final org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder bcryptPasswordEncoder;
 
     // 인증번호 임시 저장소 (실제 서비스는 Redis 사용 권장)
     private final Map<String, String> verificationCodeStore = new ConcurrentHashMap<>();
@@ -213,30 +214,59 @@ public class UserVerificationService {
 
     // 비밀번호 재설정
     private UserVerificationResponse resetPassword(UserVerificationRequest request) {
-        // 인증번호 검증
-        String storedCode = verificationCodeStore.get(request.getPhone());
-        if (storedCode == null || !storedCode.equals(request.getVerificationCode())) {
-            UserVerificationResponse response = new UserVerificationResponse();
-            response.setSuccess(false);
-            response.setMessage("인증번호가 일치하지 않습니다.");
-            return response;
-        }
-
-        // 사용자 조회 및 비밀번호 변경
+        UserVerificationResponse response = new UserVerificationResponse();
+        
+        // 사용자 조회
         UserEntity user = userRepository.findByUserId(request.getUserId());
         if (user == null) {
-            UserVerificationResponse response = new UserVerificationResponse();
             response.setSuccess(false);
             response.setMessage("사용자를 찾을 수 없습니다.");
             return response;
         }
+        
+        // 전화번호 일치 확인
+        if (!user.getPhone().equals(request.getPhone())) {
+            response.setSuccess(false);
+            response.setMessage("등록된 전화번호와 일치하지 않습니다.");
+            return response;
+        }
 
-        user.setUserPwd(request.getNewPassword()); // 실제로는 암호화 필요
-        userRepository.save(user);
-
-        UserVerificationResponse response = new UserVerificationResponse();
-        response.setSuccess(true);
-        response.setMessage("비밀번호가 재설정되었습니다.");
+        // 비밀번호 암호화 및 저장
+        try {
+            log.info("비밀번호 재설정 시작 - userId: {}, phone: {}, 새 비밀번호 길이: {}", 
+                request.getUserId(), request.getPhone(), request.getNewPassword().length());
+            
+            String encodedPassword = bcryptPasswordEncoder.encode(request.getNewPassword());
+            log.info("비밀번호 암호화 완료 - 암호화된 길이: {}", encodedPassword.length());
+            
+            // 기존 비밀번호 로깅 (보안상 일부만)
+            String oldPassword = user.getUserPwd();
+            log.info("기존 비밀번호 변경 - 기존: {}..., 새로: {}...", 
+                oldPassword != null ? oldPassword.substring(0, Math.min(10, oldPassword.length())) : "null",
+                encodedPassword.substring(0, Math.min(10, encodedPassword.length())));
+            
+            user.setUserPwd(encodedPassword);
+            UserEntity savedUser = userRepository.save(user);
+            
+            // 저장 후 확인
+            UserEntity verifyUser = userRepository.findByUserId(request.getUserId());
+            if (verifyUser != null && verifyUser.getUserPwd().equals(encodedPassword)) {
+                log.info("DB 저장 확인 완료 - userId: {}, 저장된 비밀번호 길이: {}", 
+                    request.getUserId(), verifyUser.getUserPwd().length());
+            } else {
+                log.error("DB 저장 확인 실패 - userId: {}", request.getUserId());
+            }
+            
+            response.setSuccess(true);
+            response.setMessage("비밀번호가 재설정되었습니다.");
+            log.info("비밀번호 재설정 성공 - userId: {}, phone: {}", request.getUserId(), request.getPhone());
+            
+        } catch (Exception e) {
+            log.error("비밀번호 재설정 중 오류 발생: userId={}, error={}", request.getUserId(), e.getMessage(), e);
+            response.setSuccess(false);
+            response.setMessage("비밀번호 재설정 중 오류가 발생했습니다.");
+        }
+        
         return response;
     }
 
