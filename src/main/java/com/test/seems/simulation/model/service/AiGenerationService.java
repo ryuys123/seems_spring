@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Map;
+import java.util.HashMap; // Map.of 대신 HashMap 사용을 위해 추가
 
 @Service
 @RequiredArgsConstructor
@@ -25,23 +26,24 @@ public class AiGenerationService {
 
     /**
      * 맞춤형 시뮬레이션 (극복 시뮬레이션)의 첫 질문 생성을 위해 AI 서버에 요청합니다.
-     * (기존 generateCustomSimulation에서 이름 변경 및 일반화)
      *
      * @param summary 사용자의 종합 분석 요약 엔티티
      * @return AI가 생성한 첫 질문 정보 맵
      */
-    public Map<String, Object> generateCustomSimulation(UserAnalysisSummaryEntity summary) { // ✅ 메서드명은 그대로 유지
-        String url = aiServerUrl + "/generate-custom-simulation"; // ✅ AI 서버 엔드포인트명 유지
+    public Map<String, Object> generateCustomSimulation(UserAnalysisSummaryEntity summary) {
+        String url = aiServerUrl + "/generate-custom-simulation";
         log.info("AI 맞춤형 시나리오 생성 요청. User: {}", summary.getUserId());
 
-        // 종합 분석 요약 정보로 AI에게 보낼 프롬프트를 동적으로 생성
-        String prompt = createPromptFromSummary(summary);
+        // Python AI 서버로 전송할 데이터를 Map으로 구성
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("analysisComment", summary.getAnalysisComment());
+        requestBody.put("stressScore", summary.getStressScore());
+        requestBody.put("depressionScore", summary.getDepressionScore());
+        requestBody.put("userImageSentiment", summary.getDominantEmotion()); // UserAnalysisSummaryEntity의 dominantEmotion 활용
 
-        // AI 서버에 보낼 요청 데이터 구성
-        Map<String, String> requestBody = Map.of("prompt", prompt);
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<Map<String, String>> entity = new HttpEntity<>(requestBody, headers);
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
         try {
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
@@ -59,43 +61,32 @@ public class AiGenerationService {
 
     /**
      * 종합 분석 데이터를 바탕으로 AI에게 보낼 프롬프트를 생성하는 헬퍼 메서드입니다.
+     * 이 메서드는 이제 사용하지 않습니다. 대신 generateCustomSimulation 메서드에서 직접 필요한 데이터를 Python으로 전송합니다.
      *
      * @param summary 사용자의 종합 분석 요약 엔티티
      * @return 생성된 프롬프트 문자열
      */
+    // @Deprecated // 이 메서드는 더 이상 사용되지 않음
     private String createPromptFromSummary(UserAnalysisSummaryEntity summary) {
-        String basePrompt = "[역할 부여] 당신은 인지행동치료(CBT)에 기반한 심리 시뮬레이션 AI입니다.\n";
-        basePrompt += "[사용자 정보]\n" + summary.getAnalysisComment() + "\n";
-
-        Integer stressScore = summary.getStressScore();
-        Integer depressionScore = summary.getDepressionScore();
-
-        if ((depressionScore != null && depressionScore > 45) || (stressScore != null && stressScore > 90)) {
-            basePrompt += "[시뮬레이션 목표] 사용자가 직장에서의 스트레스와 우울감을 인지하고, 현실적인 극복 방안을 탐색하며, 작은 성취를 통해 무력감을 극복하도록 돕는 '내 안의 비판자' 컨셉의 시뮬레이션을 생성하세요.";
-        } else {
-            basePrompt += "[시뮬레이션 목표] 사용자의 성격적 강점을 활용하여 긍정적인 성과를 내는 '나의 강점 활용하기' 컨셉의 시나리오를 생성하세요.";
-        }
-
-        basePrompt += "\n[JSON 출력 형식] { \"narrative\": \"...\", \"internalThought\": \"...\", \"options\": [ { \"text\": \"선택지 내용\", \"nextQuestionNumber\": 다음_질문_번호_또는_null } ] }"; // nextQuestionNumber 예시 포함
-
-        return basePrompt;
+        // 이 메서드는 이제 사용되지 않습니다.
+        // Python API가 직접 데이터를 받아 프롬프트를 구성하도록 변경되었습니다.
+        return ""; // 또는 UnsupportedOperationException을 던질 수도 있습니다.
     }
+
 
     /**
      * 시뮬레이션의 다음 질문 생성을 위해 AI 서버에 요청합니다.
-     * (기존 generateCustomSimulationContinuation에서 이름 변경 및 일반화)
      *
-     * @param prompt AI에게 보낼 프롬프트 문자열 (대화 기록, 현재 질문 번호 등 포함)
+     * @param requestData AI에게 보낼 데이터 (대화 기록, 현재 질문 번호, 사용자 분석 정보 등 포함)
      * @return AI가 생성한 다음 질문 정보 맵
      */
-    public Map<String, Object> generateCustomSimulationContinuation(String prompt) { // ✅ 메서드명은 그대로 유지
-        String url = aiServerUrl + "/continue-coping-simulation"; // ✅ AI 서버 엔드포인트명 유지
+    public Map<String, Object> generateCustomSimulationContinuation(Map<String, Object> requestData) {
+        String url = aiServerUrl + "/continue-coping-simulation";
         log.info("AI 맞춤형 시나리오 이어하기 요청.");
 
-        Map<String, String> requestBody = Map.of("prompt", prompt);
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<Map<String, String>> entity = new HttpEntity<>(requestBody, headers);
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestData, headers); // Map<String, Object>를 그대로 사용
 
         try {
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
@@ -112,13 +103,12 @@ public class AiGenerationService {
 
     /**
      * 시뮬레이션의 최종 분석을 위해 AI 서버에 요청합니다.
-     * (기존 endCopingSimulation에서 이름 변경 및 일반화)
      *
      * @param requestData 분석에 필요한 데이터 (history, initialStressScore, initialDepressionScore 등)
      * @return AI가 분석한 최종 결과 맵
      */
-    public Map<String, Object> endCopingSimulation(Map<String, Object> requestData) { // ✅ 메서드명은 그대로 유지
-        String url = aiServerUrl + "/end-coping-simulation"; // ✅ AI 서버 엔드포인트명 유지
+    public Map<String, Object> endCopingSimulation(Map<String, Object> requestData) {
+        String url = aiServerUrl + "/end-coping-simulation";
         log.info("AI 맞춤형 시뮬레이션 최종 분석 요청.");
 
         HttpHeaders headers = new HttpHeaders();
@@ -137,5 +127,4 @@ public class AiGenerationService {
             throw new RuntimeException("AI 서버와 통신 중 오류가 발생했습니다.", e);
         }
     }
-
 }
