@@ -311,6 +311,7 @@ public class UserTaskStatusService {
                 .psychoImageResultId(entity.getPsychoImageResultId())
                 .personalityResultId(entity.getPersonalityResultId())
                 .psychoScaleResultId(entity.getPsychoScaleResultId())
+                .emotionId(entity.getEmotionId())
                 .counselingSummaryId(entity.getCounselingSummaryId())
                 .simulationResultId(entity.getSimulationResultId())
                 .analysisComment(entity.getAnalysisComment())
