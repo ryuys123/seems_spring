@@ -7,9 +7,9 @@ import com.test.seems.simulation.jpa.entity.SimulationSettingEntity;
 import com.test.seems.simulation.jpa.entity.SimulationUserResultEntity;
 import com.test.seems.simulation.jpa.repository.SimulationSettingRepository;
 import com.test.seems.simulation.jpa.repository.SimulationUserResultRepository;
-import com.test.seems.simulation.model.dto.SimulationQuestion; // SimulationQuestion DTO는 유지
-import com.test.seems.simulation.model.dto.SimulationResult; // SimulationResult DTO는 유지
-import com.test.seems.simulation.model.dto.SimulationResultDetails; // ✅ SimulationResultDetails DTO 임포트 추가
+import com.test.seems.simulation.model.dto.SimulationQuestion;
+import com.test.seems.simulation.model.dto.SimulationResult;
+import com.test.seems.simulation.model.dto.SimulationResultDetails;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,17 +24,68 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SimulationService {
 
-    private static final int MAX_SIMULATION_QUESTIONS = 7;
+    private static final int MAX_SIMULATION_QUESTIONS = 7; // 시뮬레이션 최대 질문 수
 
     private final UserAnalysisSummaryRepository userAnalysisSummaryRepository;
     private final AiGenerationService aiGenerationService;
-
-    // --- 의존성 주입 (Repositories & ObjectMapper) ---
     private final SimulationSettingRepository settingRepository;
     private final SimulationUserResultRepository userResultRepository;
-    private final ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper; // JSON 직렬화/역직렬화에 사용
 
+    /**
+     * 시뮬레이션을 시작하고 첫 질문을 AI로부터 생성받습니다.
+     *
+     * @param userId 시뮬레이션을 시작할 사용자의 ID
+     * @return 첫 번째 시뮬레이션 질문 DTO
+     * @throws RuntimeException 사용자 분석 결과가 없거나 시뮬레이션 시작에 필요한 데이터가 없을 경우
+     */
+    @Transactional
+    public SimulationQuestion startSimulation(String userId) {
+        log.info("Starting simulation for userId: {}", userId);
 
+        // 사용자 종합 분석 요약 정보를 조회합니다.
+        // 이 정보가 Python AI 서버의 첫 시뮬레이션 프롬프트에 사용됩니다.
+        UserAnalysisSummaryEntity summary = userAnalysisSummaryRepository.findByUserId(userId)
+                .orElseThrow(() -> new RuntimeException("종합 분석 결과가 없는 사용자입니다: " + userId));
+
+        // AI 서버에 첫 질문 생성을 요청합니다.
+        // AiGenerationService.generateCustomSimulation은 이제 UserAnalysisSummaryEntity 자체를 넘겨
+        // Python이 그 안의 데이터(analysisComment, stressScore, depressionScore, mbti, dominantEmotion 등)를 직접 파싱하도록 합니다.
+        Map<String, Object> aiGeneratedStep = aiGenerationService.generateCustomSimulation(summary);
+
+        // 새로운 시뮬레이션 설정(Setting)을 생성하고 저장합니다.
+        SimulationSettingEntity setting = SimulationSettingEntity.builder()
+                .userId(userId)
+                .status("IN_PROGRESS")
+                .createdAt(LocalDateTime.now())
+                .currentQuestionNumber(1) // 첫 질문이므로 1로 초기화
+                .totalQuestionsCount(MAX_SIMULATION_QUESTIONS)
+                // 초기 스트레스/우울감 점수를 Setting에 저장하여 추후 최종 분석에 활용
+                .initialStressScore(summary.getStressScore())
+                .initialDepressionScore(summary.getDepressionScore())
+                .build();
+        setting = settingRepository.save(setting);
+        log.info("New simulation setting created with ID: {}", setting.getSettingId());
+
+        // AI 응답을 DTO로 매핑하고 설정 ID와 시뮬레이션 종료 여부를 설정합니다.
+        SimulationQuestion firstStepDto = mapAiResponseToDto(aiGeneratedStep);
+        firstStepDto.setSettingId(setting.getSettingId());
+        firstStepDto.setIsSimulationEnded(false);
+
+        return firstStepDto;
+    }
+
+    /**
+     * 시뮬레이션을 다음 단계로 진행하고 AI로부터 다음 질문을 생성받습니다.
+     * 마지막 질문일 경우, 최종 분석을 수행하고 결과를 반환합니다.
+     *
+     * @param settingId 현재 진행 중인 시뮬레이션 설정 ID
+     * @param history   지금까지의 대화 기록 (시뮬레이션 과정)
+     * @param choiceText 사용자의 최근 선택 텍스트
+     * @return 다음 질문 또는 최종 결과 (isSimulationEnded 필드로 구분)
+     * @throws IllegalArgumentException 시뮬레이션 설정이 없거나 유효하지 않을 경우
+     * @throws RuntimeException AI 서버 통신 또는 응답 처리 중 오류 발생 시
+     */
     @Transactional
     public Map<String, Object> continueSimulation(Long settingId, List<Map<String, Object>> history, String choiceText) {
         log.info("Continuing simulation for settingId: {}, current history size: {}, choice: {}", settingId, history.size(), choiceText);
@@ -42,30 +93,46 @@ public class SimulationService {
         SimulationSettingEntity setting = settingRepository.findById(settingId)
                 .orElseThrow(() -> new IllegalArgumentException("Simulation setting not found with ID: " + settingId));
 
+        // 사용자 종합 분석 요약 정보를 조회합니다.
+        // 이 정보는 Python AI 서버의 다음 질문 생성 프롬프트에 사용됩니다.
+        UserAnalysisSummaryEntity userSummary = userAnalysisSummaryRepository.findByUserId(setting.getUserId())
+                .orElseThrow(() -> new RuntimeException("종합 분석 결과가 없는 사용자입니다: " + setting.getUserId()));
+
         setting.incrementCurrentQuestionNumber();
         settingRepository.save(setting);
 
+        // 시뮬레이션이 최대 질문 수에 도달했는지 확인합니다.
         if (setting.getCurrentQuestionNumber() > MAX_SIMULATION_QUESTIONS) {
             log.info("Simulation for settingId: {} reached max questions ({}). Ending simulation.", settingId, MAX_SIMULATION_QUESTIONS);
-            SimulationResult finalResult = analyzeAndSaveResult(settingId, history); // 이 finalResult가 120/95점을 포함하는 곳입니다.
+            // 시뮬레이션 종료 시 최종 분석을 수행합니다.
+            SimulationResult finalResult = analyzeAndSaveResult(settingId, history);
             Map<String, Object> response = new HashMap<>();
             response.put("isSimulationEnded", true);
-            response.put("result", finalResult); // 이 `result` 필드에 최종 결과가 담깁니다.
+            response.put("result", finalResult); // 최종 결과 DTO를 포함
             return response;
         }
 
-        String prompt = createContinuationPrompt(
-                history,
-                choiceText,
-                setting.getCurrentQuestionNumber(),
-                MAX_SIMULATION_QUESTIONS
-        );
+        // --- AI 서버로 보낼 requestData Map 구성 ---
+        Map<String, Object> requestDataForContinuation = new HashMap<>();
+        requestDataForContinuation.put("history", history); // 현재까지의 대화 기록
+        requestDataForContinuation.put("choiceText", choiceText); // 사용자의 최근 선택
+        requestDataForContinuation.put("currentQuestionNum", setting.getCurrentQuestionNumber()); // 현재 질문 번호
+        requestDataForContinuation.put("totalQuestions", MAX_SIMULATION_QUESTIONS); // 총 질문 수
 
-        Map<String, Object> aiGeneratedStep = aiGenerationService.generateCustomSimulationContinuation(prompt);
+        // 사용자 종합 분석 정보 (AI 프롬프트에서 활용)
+        requestDataForContinuation.put("userInitialSummary", userSummary.getAnalysisComment());
+        requestDataForContinuation.put("userImageSentiment", userSummary.getDominantEmotion());
+        requestDataForContinuation.put("initialStressScore", setting.getInitialStressScore());
+        requestDataForContinuation.put("initialDepressionScore", setting.getInitialDepressionScore());
 
+        // AI 서버에 다음 질문 생성을 요청합니다.
+        // AiGenerationService.generateCustomSimulationContinuation은 이제 Map<String, Object>를 파라미터로 받습니다.
+        Map<String, Object> aiGeneratedStep = aiGenerationService.generateCustomSimulationContinuation(requestDataForContinuation);
+
+        // AI 응답을 DTO로 매핑하고 설정 ID와 시뮬레이션 종료 여부를 설정합니다.
         SimulationQuestion nextStepDto = mapAiResponseToDto(aiGeneratedStep);
         nextStepDto.setSettingId(setting.getSettingId());
-        nextStepDto.setIsSimulationEnded(false);
+        nextStepDto.setIsSimulationEnded(false); // 시뮬레이션이 끝나지 않았음
 
         Map<String, Object> response = new HashMap<>();
         response.put("isSimulationEnded", false);
@@ -74,56 +141,17 @@ public class SimulationService {
         return response;
     }
 
-    private String createContinuationPrompt(List<Map<String, Object>> history, String choiceText, int currentQuestionNum, int totalQuestions) {
-        return String.format(
-                "[역할 부여] 당신은 심리 시뮬레이션 AI입니다.\n" +
-                        "[시뮬레이션 정보] 현재 %d번째 질문이며, 총 %d개의 질문으로 시뮬레이션이 종료됩니다.\n" +
-                        "[지금까지의 대화 내용]\n%s\n" +
-                        "[사용자의 최근 선택]\n\"%s\"\n" +
-                        "[시뮬레이션 목표] 사용자의 선택에 적절히 반응하고, 원래 목표에 맞춰 다음 단계의 시나리오를 이어서 생성해주세요. " +
-                        "**만약 현재 질문이 마지막 질문(%d번째 질문)이라면, 선택지(`options`)를 제공하지 않거나, 각 선택지의 `nextQuestionNumber`를 `null`로 설정해주세요.**\n" +
-                        "**최종 질문(7번째 질문)에 대한 응답이라면, 시뮬레이션 전반의 대화 기록과 초기 스트레스/우울감 점수를 바탕으로 사용자의 스트레스/우울감 수준이 어떻게 변화했는지 추정하고, 어떤 긍정적인 행동이나 선택이 이에 기여했는지를 구체적으로 분석하여, `resultTitle`, `resultSummary`, `estimated_final_stress_score`, `estimated_final_depression_score`, `positive_contribution_factors` 필드를 포함한 최종 분석 JSON을 반환해주세요.**\n" +
-                        "[JSON 출력 형식 (일반 질문)] {\"narrative\": \"다음 시나리오 설명\", \"options\": [{\"text\": \"선택지1\", \"nextQuestionNumber\": 다음_질문_번호_또는_null}, ...]}\n" +
-                        "[JSON 출력 형식 (최종 질문 후 분석)] {\"resultTitle\": \"결과 제목\", \"resultSummary\": \"최종 요약\", \"estimated_final_stress_score\": 70, \"estimated_final_depression_score\": 40, \"positive_contribution_factors\": \"...\"}\n" +
-                        "다음 단계의 JSON 응답을 생성해주세요:",
-                currentQuestionNum, totalQuestions, history.toString(), choiceText, totalQuestions
-        );
-    }
-
-    @Transactional
-    public SimulationQuestion startSimulation(String userId) {
-        log.info("Starting simulation for userId: {}", userId);
-
-        UserAnalysisSummaryEntity summary = userAnalysisSummaryRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("종합 분석 결과가 없는 사용자입니다: " + userId));
-
-        Integer initialStress = summary.getStressScore();
-        Integer initialDepression = summary.getDepressionScore();
-
-        Map<String, Object> aiGeneratedStep = aiGenerationService.generateCustomSimulation(summary);
-
-        SimulationSettingEntity setting = SimulationSettingEntity.builder()
-                .userId(userId)
-                .status("IN_PROGRESS")
-                .createdAt(LocalDateTime.now())
-                .currentQuestionNumber(1)
-                .totalQuestionsCount(MAX_SIMULATION_QUESTIONS)
-                .initialStressScore(initialStress)
-                .initialDepressionScore(initialDepression)
-                .build();
-        setting = settingRepository.save(setting);
-        log.info("New simulation setting created with ID: {}", setting.getSettingId());
-
-        SimulationQuestion firstStepDto = mapAiResponseToDto(aiGeneratedStep);
-        firstStepDto.setSettingId(setting.getSettingId());
-        firstStepDto.setIsSimulationEnded(false);
-
-        return firstStepDto;
-    }
-
+    /**
+     * AI로부터 받은 응답 Map을 SimulationQuestion DTO로 매핑합니다.
+     *
+     * @param aiResponse AI 서버로부터 받은 응답 Map
+     * @return 매핑된 SimulationQuestion DTO
+     */
     private SimulationQuestion mapAiResponseToDto(Map<String, Object> aiResponse) {
+        // AI 응답에서 'options' 리스트를 안전하게 가져옵니다.
         List<Map<String, Object>> optionsFromAi = (List<Map<String, Object>>) aiResponse.getOrDefault("options", Collections.emptyList());
 
+        // 각 선택지 Map을 SimulationQuestion.ChoiceOption DTO로 변환합니다.
         List<SimulationQuestion.ChoiceOption> options = optionsFromAi.stream()
                 .map(optMap -> SimulationQuestion.ChoiceOption.builder()
                         .text((String) optMap.get("text"))
@@ -131,14 +159,25 @@ public class SimulationService {
                         .build())
                 .collect(Collectors.toList());
 
+        // narrative와 변환된 options를 사용하여 SimulationQuestion DTO를 빌드합니다.
         return SimulationQuestion.builder()
                 .questionText((String) aiResponse.get("narrative"))
                 .options(options)
                 .build();
     }
 
+    /**
+     * 시뮬레이션 종료 시 최종 분석을 수행하고 결과를 저장합니다.
+     *
+     * @param settingId 완료된 시뮬레이션 설정 ID
+     * @param history   시뮬레이션의 전체 대화 기록
+     * @return 최종 분석 결과 DTO
+     * @throws IllegalArgumentException 시뮬레이션 설정이 없거나 유효하지 않을 경우
+     * @throws RuntimeException AI 서버 통신 또는 응답 처리 중 오류 발생 시
+     */
     @Transactional
     public SimulationResult analyzeAndSaveResult(Long settingId, List<Map<String, Object>> history) {
+        // 이미 결과가 존재하는지 확인하여 중복 저장을 방지합니다.
         Optional<SimulationUserResultEntity> existingResult = userResultRepository.findBySettingId(settingId);
         if (existingResult.isPresent()) {
             log.warn("Result for settingId: {} already exists. Returning existing result.", settingId);
@@ -150,26 +189,39 @@ public class SimulationService {
         SimulationSettingEntity setting = settingRepository.findById(settingId)
                 .orElseThrow(() -> new IllegalArgumentException("Simulation setting not found with ID: " + settingId));
 
-        Map<String, Object> analysisRequestData = new HashMap<>();
-        analysisRequestData.put("history", history);
-        analysisRequestData.put("initialStressScore", setting.getInitialStressScore());
-        analysisRequestData.put("initialDepressionScore", setting.getInitialDepressionScore());
+        // 사용자 종합 분석 요약 정보를 조회합니다.
+        UserAnalysisSummaryEntity userSummary = userAnalysisSummaryRepository.findByUserId(setting.getUserId())
+                .orElseThrow(() -> new RuntimeException("종합 분석 결과가 없는 사용자입니다: " + setting.getUserId()));
 
+
+        // --- AI 서버의 최종 분석 API로 보낼 requestData Map 구성 ---
+        Map<String, Object> analysisRequestData = new HashMap<>();
+        analysisRequestData.put("history", history); // 전체 대화 기록
+        analysisRequestData.put("initialStressScore", setting.getInitialStressScore()); // 시뮬레이션 시작 시점의 스트레스 점수
+        analysisRequestData.put("initialDepressionScore", setting.getInitialDepressionScore()); // 시뮬레이션 시작 시점의 우울감 점수
+
+        // 사용자 종합 분석 정보 (AI 프롬프트에서 활용)
+        analysisRequestData.put("userInitialSummary", userSummary.getAnalysisComment());
+        analysisRequestData.put("userImageSentiment", userSummary.getDominantEmotion());
+
+
+        // AI 서버에 최종 분석을 요청합니다.
         Map<String, Object> finalAnalysis = aiGenerationService.endCopingSimulation(analysisRequestData);
 
+        // AI 분석 결과에서 필요한 정보들을 추출합니다.
         String resultSummary = (String) finalAnalysis.get("resultSummary");
         String resultTitle = (String) finalAnalysis.get("resultTitle");
-
         Integer estimatedFinalStressScore = (Integer) finalAnalysis.get("estimated_final_stress_score");
         Integer estimatedFinalDepressionScore = (Integer) finalAnalysis.get("estimated_final_depression_score");
         String positiveContributionFactors = (String) finalAnalysis.get("positive_contribution_factors");
 
+        // 시뮬레이션 사용자 결과 엔티티를 생성하고 저장합니다.
         SimulationUserResultEntity userResultEntity = SimulationUserResultEntity.builder()
                 .settingId(settingId)
                 .resultTitle(resultTitle)
                 .resultSummary(resultSummary)
-                .initialStressScore(setting.getInitialStressScore()) // 시작 스트레스 점수를 setting에서 가져옴
-                .initialDepressionScore(setting.getInitialDepressionScore()) // 시작 우울감 점수를 setting에서 가져옴
+                .initialStressScore(setting.getInitialStressScore())
+                .initialDepressionScore(setting.getInitialDepressionScore())
                 .estimatedFinalStressScore(estimatedFinalStressScore)
                 .estimatedFinalDepressionScore(estimatedFinalDepressionScore)
                 .positiveContributionFactors(positiveContributionFactors)
@@ -179,12 +231,20 @@ public class SimulationService {
         SimulationUserResultEntity savedResult = userResultRepository.save(userResultEntity);
         log.info("Simulation result saved to TB_SIMULATION_USER_RESULTS for settingId: {}", settingId);
 
+        // 시뮬레이션 설정의 상태를 'COMPLETED'로 변경합니다.
         setting.setStatus("COMPLETED");
         settingRepository.save(setting);
 
-        return savedResult.toDto(); // 이 toDto() 메서드가 반환하는 SimulationResult DTO에 120/95점 포함된 것으로 보입니다.
+        // 저장된 결과를 DTO로 변환하여 반환합니다.
+        return savedResult.toDto();
     }
 
+    /**
+     * 특정 사용자 ID의 최신 완료된 시뮬레이션 결과를 조회합니다.
+     *
+     * @param userId 조회할 사용자의 ID
+     * @return 최신 시뮬레이션 결과 DTO (존재하지 않으면 Optional.empty())
+     */
     @Transactional(readOnly = true)
     public Optional<SimulationResult> getLatestSimulationResult(String userId) {
         Optional<SimulationSettingEntity> latestSetting = settingRepository
@@ -193,11 +253,17 @@ public class SimulationService {
         if (latestSetting.isPresent()) {
             Long settingId = latestSetting.get().getSettingId();
             Optional<SimulationUserResultEntity> userResult = userResultRepository.findBySettingId(settingId);
-            return userResult.map(SimulationUserResultEntity::toDto); // 이 toDto() 메서드가 반환하는 SimulationResult DTO에 120/95점 포함된 것으로 보입니다.
+            return userResult.map(SimulationUserResultEntity::toDto);
         }
         return Optional.empty();
     }
 
+    /**
+     * 진행 중인 시뮬레이션이 있는지 확인하고, 있다면 해당 시뮬레이션의 settingId를 반환합니다.
+     *
+     * @param userId 조회할 사용자의 ID
+     * @return 진행 중인 시뮬레이션의 settingId Map (존재하지 않으면 Optional.empty())
+     */
     @Transactional(readOnly = true)
     public Optional<Map<String, Object>> resumeSimulation(String userId) {
         log.info("Attempting to resume simulation for userId: {}", userId);
@@ -213,17 +279,18 @@ public class SimulationService {
         return Optional.empty();
     }
 
-    // ✅ SimulationResultDetails를 가져오는 메서드 추가
+    /**
+     * 특정 시뮬레이션 설정 ID에 해당하는 최종 결과 상세 정보를 조회합니다.
+     *
+     * @param settingId 조회할 시뮬레이션 설정 ID
+     * @return 시뮬레이션 결과 상세 DTO (존재하지 않으면 Optional.empty())
+     */
     @Transactional(readOnly = true)
     public Optional<SimulationResultDetails> getSimulationResultDetails(Long settingId) {
         log.info("Fetching simulation result details for settingId: {}", settingId);
-        // SimulationUserResultRepository를 사용하여 settingId에 해당하는 최종 사용자 결과를 조회합니다.
         Optional<SimulationUserResultEntity> userResultEntityOptional = userResultRepository.findBySettingId(settingId);
 
         return userResultEntityOptional.map(userResultEntity -> {
-            // 조회된 엔티티를 SimulationResultDetails DTO로 변환합니다.
-            // 이 DTO의 필드명과 엔티티의 필드명이 일치해야 합니다.
-            // 예를 들어, SimulationUserResultEntity에 resultTitle, resultSummary 등의 필드가 직접 매핑되어 있다면.
             return new SimulationResultDetails(
                     userResultEntity.getResultTitle(),
                     userResultEntity.getResultSummary(),
