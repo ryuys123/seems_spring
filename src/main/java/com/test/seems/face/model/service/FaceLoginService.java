@@ -176,23 +176,54 @@ public class FaceLoginService {
             }
             UserEntity user = userOpt.get();
 
-            // 2. 기존 페이스 확인 및 정리
+            // 2. 기존 페이스 확인 및 자동 삭제
             List<FaceLoginEntity> existingFaces = faceLoginRepository.findByUserId(request.getUserId());
             if (!existingFaces.isEmpty()) {
                 log.info("기존 페이스 발견: userId={}, 기존 페이스 수={}", request.getUserId(), existingFaces.size());
                 
-                // 기존 페이스들을 모두 삭제 (DeepFace 서비스에서도 삭제)
+                // 기존 페이스들을 모두 삭제
                 for (FaceLoginEntity existingFace : existingFaces) {
-                    log.info("기존 페이스 삭제 중: userId={}, faceName={}", request.getUserId(), existingFace.getFaceName());
+                    log.info("기존 페이스 삭제 시작: faceName={}", existingFace.getFaceName());
                     
                     // DeepFace 서비스에서 삭제
-                    faceRecognitionUtil.deleteFace(request.getUserId(), existingFace.getFaceName());
+                    boolean deepfaceDeleteSuccess = faceRecognitionUtil.deleteFace(request.getUserId(), existingFace.getFaceName());
+                    if (!deepfaceDeleteSuccess) {
+                        log.warn("DeepFace 서비스에서 기존 페이스 삭제 실패: faceName={}", existingFace.getFaceName());
+                    }
                     
                     // DB에서 삭제
                     faceLoginRepository.delete(existingFace);
+                    log.info("기존 페이스 삭제 완료: faceName={}", existingFace.getFaceName());
                 }
                 
-                log.info("기존 페이스 삭제 완료: userId={}", request.getUserId());
+                // 삭제 후 다시 확인하여 완전히 삭제되었는지 확인
+                List<FaceLoginEntity> remainingFaces = faceLoginRepository.findByUserId(request.getUserId());
+                if (!remainingFaces.isEmpty()) {
+                    log.warn("기존 페이스 삭제 후에도 남아있는 페이스가 있음: userId={}, 남은 페이스 수={}", 
+                            request.getUserId(), remainingFaces.size());
+                    
+                    // 강제로 모든 페이스 삭제
+                    for (FaceLoginEntity remainingFace : remainingFaces) {
+                        faceLoginRepository.delete(remainingFace);
+                        log.info("강제 삭제 완료: faceName={}", remainingFace.getFaceName());
+                    }
+                    
+                    // 한 번 더 확인
+                    List<FaceLoginEntity> finalCheck = faceLoginRepository.findByUserId(request.getUserId());
+                    if (!finalCheck.isEmpty()) {
+                        log.error("페이스 삭제 실패: userId={}, 여전히 남은 페이스 수={}", 
+                                request.getUserId(), finalCheck.size());
+                        return FaceRegistrationResponse.failure("기존 페이스 삭제에 실패했습니다. 다시 시도해주세요.");
+                    }
+                }
+                
+                log.info("모든 기존 페이스 삭제 완료: userId={}", request.getUserId());
+                
+                // 사용자의 페이스 로그인 상태도 초기화
+                user.setFaceLoginEnabled(false);
+                user.setUpdatedAt(new java.util.Date());
+                userRepository.save(user);
+                log.info("사용자 페이스 로그인 상태 초기화: userId={}, faceLoginEnabled=false", request.getUserId());
             }
 
             // 3. 얼굴 중복 등록 체크 (다른 계정에서 이미 등록된 얼굴인지 확인)
@@ -275,14 +306,20 @@ public class FaceLoginService {
         try {
             log.info("페이스 삭제 시작: 사용자 {}, 페이스 {}", userId, faceName);
 
-            // 1. DB에서 페이스 로그인 정보 조회
-            Optional<FaceLoginEntity> faceLoginOpt = faceLoginRepository.findByUserIdAndFaceName(userId, faceName);
-            if (faceLoginOpt.isEmpty()) {
-                log.warn("삭제할 페이스 정보를 찾을 수 없음: userId={}, faceName={}", userId, faceName);
-                return false;
+            // 1. 사용자의 모든 페이스 정보 조회 (디버깅용)
+            List<FaceLoginEntity> allUserFaces = faceLoginRepository.findByUserId(userId);
+            log.info("사용자의 모든 페이스 정보: userId={}, 총 페이스 수={}", userId, allUserFaces.size());
+            for (FaceLoginEntity face : allUserFaces) {
+                log.info("  - faceName: '{}', faceIdHash: '{}', isActive: {}", 
+                        face.getFaceName(), face.getFaceIdHash(), face.getIsActive());
             }
 
-            // 2. DeepFace 서비스에서 얼굴 삭제 (실패해도 DB 삭제는 진행)
+            // 2. DB에서 페이스 로그인 정보 조회
+            Optional<FaceLoginEntity> faceLoginOpt = faceLoginRepository.findByUserIdAndFaceName(userId, faceName);
+            log.info("특정 페이스 조회 결과: userId={}, faceName={}, 찾음={}", 
+                    userId, faceName, faceLoginOpt.isPresent());
+
+            // 3. DeepFace 서비스에서 얼굴 삭제 (실패해도 DB 삭제는 진행)
             boolean deepfaceSuccess = faceRecognitionUtil.deleteFace(userId, faceName);
             if (!deepfaceSuccess) {
                 log.warn("DeepFace 서비스 얼굴 삭제 실패하지만 DB 삭제는 진행: userId={}, faceName={}", userId, faceName);
@@ -290,11 +327,27 @@ public class FaceLoginService {
                 log.info("DeepFace 서비스 얼굴 삭제 성공: userId={}, faceName={}", userId, faceName);
             }
 
-            // 3. DB에서 페이스 로그인 정보 삭제
-            faceLoginRepository.delete(faceLoginOpt.get());
-            log.info("DB에서 페이스 정보 삭제 완료: userId={}, faceName={}", userId, faceName);
+            // 4. DB에서 페이스 로그인 정보 삭제
+            boolean dbDeleteSuccess = false;
+            if (faceLoginOpt.isPresent()) {
+                faceLoginRepository.delete(faceLoginOpt.get());
+                dbDeleteSuccess = true;
+                log.info("DB에서 페이스 삭제 성공: userId={}, faceName={}", userId, faceName);
+            } else {
+                log.warn("DB에서 삭제할 페이스 정보를 찾을 수 없음: userId={}, faceName={}", userId, faceName);
+                
+                // 특정 페이스를 찾지 못한 경우, 사용자의 모든 페이스 삭제
+                if (!allUserFaces.isEmpty()) {
+                    log.info("사용자의 모든 페이스 삭제 시도: userId={}", userId);
+                    for (FaceLoginEntity face : allUserFaces) {
+                        faceLoginRepository.delete(face);
+                        log.info("사용자 페이스 삭제 완료: faceName={}", face.getFaceName());
+                    }
+                    dbDeleteSuccess = true;
+                }
+            }
 
-            // 4. 사용자 정보에서 페이스 로그인 활성화 비활성화
+            // 5. 사용자 정보에서 페이스 로그인 활성화 비활성화
             Optional<UserEntity> userOpt = userRepository.findById(userId);
             if (userOpt.isPresent()) {
                 UserEntity user = userOpt.get();
@@ -304,8 +357,10 @@ public class FaceLoginService {
                 log.info("사용자 페이스 로그인 비활성화: userId={}", userId);
             }
 
-            log.info("페이스 삭제 성공: 사용자 {}, 페이스 {}", userId, faceName);
-            return true;
+            log.info("페이스 삭제 완료: userId={}, faceName={}, DeepFace 성공={}, DB 삭제 성공={}", 
+                    userId, faceName, deepfaceSuccess, dbDeleteSuccess);
+
+            return dbDeleteSuccess;
 
         } catch (Exception e) {
             log.error("페이스 삭제 중 오류 발생: userId={}, faceName={}, error={}", userId, faceName, e.getMessage(), e);
