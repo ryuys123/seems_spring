@@ -340,14 +340,33 @@ public class FaceLoginController {
         log.info("마이페이지 페이스 연동 해제 요청: 사용자 {}, 페이스 {}", userId, faceName);
         
         try {
+            // 입력 검증
+            if (userId == null || userId.trim().isEmpty()) {
+                log.error("페이스 연동 해제 실패: userId가 null이거나 비어있음");
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "사용자 ID는 필수입니다."
+                ));
+            }
+            
+            if (faceName == null || faceName.trim().isEmpty()) {
+                log.error("페이스 연동 해제 실패: faceName이 null이거나 비어있음");
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "페이스 이름은 필수입니다."
+                ));
+            }
+            
             boolean result = faceLoginService.deleteFace(userId, faceName);
             
             if (result) {
+                log.info("페이스 연동 해제 성공: userId={}, faceName={}", userId, faceName);
                 return ResponseEntity.ok(Map.of(
                     "success", true,
                     "message", "페이스 연동이 해제되었습니다."
                 ));
             } else {
+                log.error("페이스 연동 해제 실패: userId={}, faceName={}", userId, faceName);
                 return ResponseEntity.badRequest().body(Map.of(
                     "success", false,
                     "message", "페이스 연동 해제에 실패했습니다."
@@ -355,10 +374,10 @@ public class FaceLoginController {
             }
             
         } catch (Exception e) {
-            log.error("페이스 연동 해제 중 오류: {}", e.getMessage());
+            log.error("페이스 연동 해제 중 오류: userId={}, faceName={}, error={}", userId, faceName, e.getMessage(), e);
             return ResponseEntity.status(500).body(Map.of(
                 "success", false,
-                "message", "페이스 연동 해제 중 오류가 발생했습니다."
+                "message", "페이스 연동 해제 중 오류가 발생했습니다: " + e.getMessage()
             ));
         }
     }
