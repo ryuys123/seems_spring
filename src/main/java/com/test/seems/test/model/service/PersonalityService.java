@@ -5,9 +5,9 @@ import com.test.seems.test.jpa.entity.PersonalityTestResultEntity;
 import com.test.seems.test.jpa.entity.TestQuestionEntity;
 import com.test.seems.test.jpa.repository.CommonQuestionRepository;
 import com.test.seems.test.jpa.repository.PersonalityAnswerRepository;
-import com.test.seems.test.jpa.repository.PersonalityResultRepository;
-import com.test.seems.test.model.dto.PersonalityAnswerDto;
-import com.test.seems.test.model.dto.PersonalitySubmissionDto;
+import com.test.seems.test.jpa.repository.PersonalityTestResultRepository;
+import com.test.seems.test.model.dto.PersonalityAnswer;
+import com.test.seems.test.model.dto.PersonalitySubmission;
 import com.test.seems.test.model.dto.PersonalityTestResult;
 import com.test.seems.test.model.dto.TestQuestion;
 import com.test.seems.user.exception.UserNotFoundException;
@@ -32,7 +32,8 @@ public class PersonalityService {
 
     private final CommonQuestionRepository commonQuestionRepository;
     private final PersonalityAnswerRepository personalityAnswerRepository;
-    private final PersonalityResultRepository personalityResultRepository;
+    // ✨ [수정] PersonalityResultRepository -> PersonalityTestResultRepository
+    private final PersonalityTestResultRepository personalityTestResultRepository;
     private final UserRepository userRepository;
 
     private static final Map<String, String> mbtiTitles = new HashMap<>();
@@ -82,13 +83,14 @@ public class PersonalityService {
                 .collect(Collectors.toList());
     }
 
+    // ✨ [수정] submitPersonalityTest 메서드 내부
     @Transactional
-    public PersonalityTestResult submitPersonalityTest(PersonalitySubmissionDto submissionDto) {
+    public PersonalityTestResult submitPersonalityTest(PersonalitySubmission submissionDto) {
         UserEntity user = userRepository.findById(submissionDto.getUserId())
                 .orElseThrow(() -> new UserNotFoundException("User not found with id: " + submissionDto.getUserId()));
 
         // 1. Save answers
-        for (PersonalityAnswerDto answerDto : submissionDto.getAnswers()) {
+        for (PersonalityAnswer answerDto : submissionDto.getAnswers()) {
             PersonalityEntity answerEntity = new PersonalityEntity();
             answerEntity.setUserId(user.getUserId());
             answerEntity.setQuestionId(answerDto.getQuestionId());
@@ -103,7 +105,7 @@ public class PersonalityService {
         scores.put("T", 0); scores.put("F", 0);
         scores.put("J", 0); scores.put("P", 0);
 
-        for (PersonalityAnswerDto answer : submissionDto.getAnswers()) {
+        for (PersonalityAnswer answer : submissionDto.getAnswers()) {
             log.info("Processing answer for questionId: {}, answerValue: {}, scoreDirection: {}", answer.getQuestionId(), answer.getAnswerValue(), answer.getScoreDirection());
             // Assuming answerValue is 1-5 scale. 1,2 -> +1 for I,S,F,P. 4,5 -> +1 for E,N,T,J
             int value = answer.getAnswerValue();
@@ -147,7 +149,7 @@ public class PersonalityService {
         resultEntity.setMbtiTitle(mbtiTitles.get(mbtiType));
         resultEntity.setCreatedAt(LocalDateTime.now());
 
-        PersonalityTestResultEntity savedResult = personalityResultRepository.save(resultEntity);
+        PersonalityTestResultEntity savedResult = personalityTestResultRepository.save(resultEntity);
 
         return new PersonalityTestResult(
                 savedResult.getResult(),
@@ -171,9 +173,10 @@ public class PersonalityService {
         }
     }
 
+    // ✨ [수정] getPersonalityTestResult 메서드
     @Transactional(readOnly = true)
     public Optional<PersonalityTestResult> getPersonalityTestResult(String userId) {
-        return personalityResultRepository
+        return personalityTestResultRepository // ✨ 변수명 수정
                 .findTopByUserIdOrderByCreatedAtDesc(userId)
                 .map(entity -> new PersonalityTestResult(
                         entity.getResult(),
@@ -183,10 +186,13 @@ public class PersonalityService {
                 ));
     }
 
+    // ✨ [수정] getTestHistoryByUserId 메서드
     @Transactional(readOnly = true)
     public List<PersonalityTestResult> getTestHistoryByUserId(String userId) {
-        return personalityResultRepository
-                .findAllByUserIdOrderByCreatedAtDesc(userId)
+        // 'findAllByUserIdOrderByCreatedAtDesc'는 우리가 통합한 리포지토리에 없는 메서드입니다.
+        // 'findByUserIdOrderByCreatedAtDesc'로 변경합니다.
+        return personalityTestResultRepository // ✨ 변수명 수정
+                .findByUserIdOrderByCreatedAtDesc(userId) // ✨ 메서드명 수정
                 .stream()
                 .map(entity -> new PersonalityTestResult(
                         entity.getResult(),

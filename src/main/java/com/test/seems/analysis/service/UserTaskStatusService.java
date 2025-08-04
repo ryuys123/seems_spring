@@ -11,11 +11,11 @@ import com.test.seems.counseling.jpa.repository.CounselingAnalysisSummaryReposit
 import com.test.seems.emotion.jpa.entity.Emotion;
 import com.test.seems.emotion.jpa.repository.EmotionRepository;
 import com.test.seems.test.jpa.entity.PersonalityTestResultEntity;
-import com.test.seems.test.jpa.entity.PsychologicalScaleResult;
 import com.test.seems.test.jpa.entity.PsychologicalTestResultEntity;
-import com.test.seems.test.jpa.repository.PersonalityResultRepository;
-import com.test.seems.test.jpa.repository.PsychologicalImageResultRepository;
-import com.test.seems.test.jpa.repository.PsychologicalScaleResultRepository;
+import com.test.seems.test.jpa.entity.ScaleAnalysisResultEntity;
+import com.test.seems.test.jpa.repository.PersonalityTestResultRepository;
+import com.test.seems.test.jpa.repository.PsychologicalTestResultRepository;
+import com.test.seems.test.jpa.repository.ScaleAnalysisResultRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -31,16 +31,15 @@ public class UserTaskStatusService {
     @Autowired
     private CounselingAnalysisSummaryRepository counselingAnalysisSummaryRepository;
 
+    // ✨ [수정] 삭제된 리포지토리를 통합된 리포지토리로 변경
     @Autowired
-    private PersonalityResultRepository personalityResultRepository; // PersonalityResultRepository는 유지
-
-    // @Autowired
-    // private PsychologicalTestResultRepository psychologicalTestResultRepository; // ✅ 이 필드 삭제
-    @Autowired
-    private PsychologicalImageResultRepository psychologicalImageResultRepository; // ✅ 이 필드 추가
+    private PersonalityTestResultRepository personalityTestResultRepository;
 
     @Autowired
-    private PsychologicalScaleResultRepository psychologicalScaleResultRepository;
+    private PsychologicalTestResultRepository psychologicalTestResultRepository;
+
+    @Autowired
+    private ScaleAnalysisResultRepository scaleAnalysisResultRepository;
 
     @Autowired
     private EmotionRepository emotionRepository;
@@ -76,7 +75,8 @@ public class UserTaskStatusService {
             log.info("상담 결과 없음.");
         }
 
-        Optional<PersonalityTestResultEntity> personalityResultOpt = personalityResultRepository.findTopByUserIdOrderByCreatedAtDesc(userId);
+        // ✨ [수정] personalityResultRepository 변수명은 다르지만, 타입이 통합된 것으로 변경되었으므로 호출은 동일
+        Optional<PersonalityTestResultEntity> personalityResultOpt = personalityTestResultRepository.findTopByUserIdOrderByCreatedAtDesc(userId);
         if (personalityResultOpt.isPresent()) {
             status.setPersonalityTestCompleted(1);
             log.info("성격 검사 결과 존재: {}", personalityResultOpt.get().getPersonalityId());
@@ -84,8 +84,8 @@ public class UserTaskStatusService {
             log.info("성격 검사 결과 없음.");
         }
 
-        // Optional<PsychologicalTestResultEntity> psychImageResultOpt = psychologicalTestResultRepository.findTopByUserIdOrderByCreatedAtDesc(userId); // ✅ 이 줄 삭제
-        Optional<PsychologicalTestResultEntity> psychImageResultOpt = psychologicalImageResultRepository.findTopByUserIdOrderByCreatedAtDesc(userId); // ✅ 이 줄 추가
+        // ✨ [수정] psychologicalTestResultRepository 변수명은 다르지만, 타입이 통합된 것으로 변경되었으므로 호출은 동일
+        Optional<PsychologicalTestResultEntity> psychImageResultOpt = psychologicalTestResultRepository.findTopByUserIdOrderByCreatedAtDesc(userId);
         if (psychImageResultOpt.isPresent()) {
             status.setPsychImageTestCompleted(1);
             log.info("이미지 심리 검사 결과 존재: {}", psychImageResultOpt.get().getResultId());
@@ -93,7 +93,8 @@ public class UserTaskStatusService {
             log.info("이미지 심리 검사 결과 없음.");
         }
 
-        Optional<PsychologicalScaleResult> depressionResultOpt = psychologicalScaleResultRepository.findTopByUser_UserIdAndTestCategoryOrderByCreatedAtDesc(userId, "DEPRESSION_SCALE");
+        // ✨ [수정] 삭제된 엔티티(PsychologicalScaleResult)와 리포지토리를 수정된 것으로 변경
+        Optional<ScaleAnalysisResultEntity> depressionResultOpt = scaleAnalysisResultRepository.findTopByUser_UserIdAndTestCategoryOrderByCreatedAtDesc(userId, "DEPRESSION_SCALE");
         if (depressionResultOpt.isPresent()) {
             status.setDepressionTestCompleted(1);
             log.info("우울증 검사 결과 존재: {}", depressionResultOpt.get().getResultId());
@@ -101,13 +102,15 @@ public class UserTaskStatusService {
             log.info("우울증 검사 결과 없음.");
         }
 
-        Optional<PsychologicalScaleResult> stressResultOpt = psychologicalScaleResultRepository.findTopByUser_UserIdAndTestCategoryOrderByCreatedAtDesc(userId, "STRESS_SCALE");
+        // ✨ [수정] 삭제된 엔티티(PsychologicalScaleResult)와 리포지토리를 수정된 것으로 변경
+        Optional<ScaleAnalysisResultEntity> stressResultOpt = scaleAnalysisResultRepository.findTopByUser_UserIdAndTestCategoryOrderByCreatedAtDesc(userId, "STRESS_SCALE");
         if (stressResultOpt.isPresent()) {
             status.setStressTestCompleted(1);
             log.info("스트레스 검사 결과 존재: {}", stressResultOpt.get().getResultId());
         } else {
             log.info("스트레스 검사 결과 없음.");
         }
+
 
         log.info("최종 UserTaskStatus: 상담={}, 성격={}, 이미지={}, 우울증={}, 스트레스={}",
                 status.getCounselingCompleted(), status.getPersonalityTestCompleted(),
@@ -134,15 +137,11 @@ public class UserTaskStatusService {
         }
 
         Optional<CounselingAnalysisSummaryEntity> counselingSummaryOpt = counselingAnalysisSummaryRepository.findTopBySession_User_UserIdOrderByCreatedAtDesc(userId);
-        log.info("DEBUG: counselingSummaryOpt.isPresent(): {}", counselingSummaryOpt.isPresent());
-        Optional<PersonalityTestResultEntity> personalityResultOpt = personalityResultRepository.findTopByUserIdOrderByCreatedAtDesc(userId);
-        log.info("DEBUG: personalityResultOpt.isPresent(): {}", personalityResultOpt.isPresent());
-        Optional<PsychologicalTestResultEntity> psychImageResultOpt = psychologicalImageResultRepository.findTopByUserIdOrderByCreatedAtDesc(userId);
-        log.info("DEBUG: psychImageResultOpt.isPresent(): {}", psychImageResultOpt.isPresent());
-        Optional<PsychologicalScaleResult> depressionResultOpt = psychologicalScaleResultRepository.findTopByUser_UserIdAndTestCategoryOrderByCreatedAtDesc(userId, "DEPRESSION_SCALE");
-        log.info("DEBUG: depressionResultOpt.isPresent(): {}", depressionResultOpt.isPresent());
-        Optional<PsychologicalScaleResult> stressResultOpt = psychologicalScaleResultRepository.findTopByUser_UserIdAndTestCategoryOrderByCreatedAtDesc(userId, "STRESS_SCALE");
-        log.info("DEBUG: stressResultOpt.isPresent(): {}", stressResultOpt.isPresent());
+        Optional<PersonalityTestResultEntity> personalityResultOpt = personalityTestResultRepository.findTopByUserIdOrderByCreatedAtDesc(userId);
+        Optional<PsychologicalTestResultEntity> psychImageResultOpt = psychologicalTestResultRepository.findTopByUserIdOrderByCreatedAtDesc(userId);
+        // ✨ [수정] 삭제된 엔티티(PsychologicalScaleResult)와 리포지토리를 수정된 것으로 변경
+        Optional<ScaleAnalysisResultEntity> depressionResultOpt = scaleAnalysisResultRepository.findTopByUser_UserIdAndTestCategoryOrderByCreatedAtDesc(userId, "DEPRESSION_SCALE");
+        Optional<ScaleAnalysisResultEntity> stressResultOpt = scaleAnalysisResultRepository.findTopByUser_UserIdAndTestCategoryOrderByCreatedAtDesc(userId, "STRESS_SCALE");
 
         log.info("DEBUG: All Optional checks before final validation: counseling={}, personality={}, image={}, depression={}, stress={}",
                 counselingSummaryOpt.isPresent(), personalityResultOpt.isPresent(), psychImageResultOpt.isPresent(),

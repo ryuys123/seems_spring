@@ -22,7 +22,7 @@ public class QScaleAnalysisResultEntity extends EntityPathBase<ScaleAnalysisResu
 
     public static final QScaleAnalysisResultEntity scaleAnalysisResultEntity = new QScaleAnalysisResultEntity("scaleAnalysisResultEntity");
 
-    public final DateTimePath<java.sql.Timestamp> createdAt = createDateTime("createdAt", java.sql.Timestamp.class);
+    public final DateTimePath<java.time.LocalDateTime> createdAt = createDateTime("createdAt", java.time.LocalDateTime.class);
 
     public final StringPath interpretation = createString("interpretation");
 
@@ -33,6 +33,8 @@ public class QScaleAnalysisResultEntity extends EntityPathBase<ScaleAnalysisResu
     public final StringPath suggestions = createString("suggestions");
 
     public final StringPath testCategory = createString("testCategory");
+
+    public final StringPath testType = createString("testType");
 
     public final NumberPath<Double> totalScore = createNumber("totalScore", Double.class);
 

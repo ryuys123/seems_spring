@@ -10,10 +10,10 @@ import com.test.seems.quest.jpa.entity.QuestEntity;
 import com.test.seems.quest.jpa.repository.QuestRepository;
 import com.test.seems.test.jpa.entity.PersonalityTestResultEntity;
 import com.test.seems.test.jpa.entity.PsychologicalTestResultEntity;
-import com.test.seems.test.jpa.entity.PsychologicalScaleResult;
-import com.test.seems.test.jpa.repository.PersonalityResultRepository;
-import com.test.seems.test.jpa.repository.PsychologicalImageResultRepository;
-import com.test.seems.test.jpa.repository.PsychologicalScaleResultRepository;
+import com.test.seems.test.jpa.entity.ScaleAnalysisResultEntity;
+import com.test.seems.test.jpa.repository.PersonalityTestResultRepository;
+import com.test.seems.test.jpa.repository.PsychologicalTestResultRepository;
+import com.test.seems.test.jpa.repository.ScaleAnalysisResultRepository;
 import com.test.seems.user.model.dto.ActivityDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,11 +33,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class UserActivityService {
-    
+
+    // ✨ [수정] 의존성 주입을 통합된 리포지토리로 변경
     private final CounselingSessionRepository counselingSessionRepository;
-    private final PersonalityResultRepository personalityResultRepository;
-    private final PsychologicalImageResultRepository psychologicalImageResultRepository;
-    private final PsychologicalScaleResultRepository psychologicalScaleResultRepository;
+    private final PersonalityTestResultRepository personalityTestResultRepository;
+    private final PsychologicalTestResultRepository psychologicalTestResultRepository;
+    private final ScaleAnalysisResultRepository scaleAnalysisResultRepository;
     private final QuestRepository questRepository;
     private final EmotionLogRepository emotionLogRepository;
     private final FaqRepository faqRepository;
@@ -125,16 +126,15 @@ public class UserActivityService {
         
         return activities;
     }
-    
+
     /**
      * 성격검사 활동 조회
      */
     private List<ActivityDto> getPersonalityTestActivities(String userId) {
         List<ActivityDto> activities = new ArrayList<>();
-        
         try {
-            List<PersonalityTestResultEntity> results = personalityResultRepository.findByUserIdOrderByCreatedAtDesc(userId);
-            
+            // ✨ [수정] 통합된 리포지토리(personalityTestResultRepository)를 사용하도록 변경
+            List<PersonalityTestResultEntity> results = personalityTestResultRepository.findByUserIdOrderByCreatedAtDesc(userId);
             for (PersonalityTestResultEntity result : results) {
                 activities.add(ActivityDto.builder()
                         .activityType("PERSONALITY_TEST")
@@ -149,19 +149,18 @@ public class UserActivityService {
         } catch (Exception e) {
             log.warn("성격검사 활동 조회 실패: userId={}", userId, e);
         }
-        
         return activities;
     }
-    
+
     /**
      * 심리검사 활동 조회
      */
     private List<ActivityDto> getPsychologicalTestActivities(String userId) {
         List<ActivityDto> activities = new ArrayList<>();
-        
         try {
             // 이미지 기반 심리검사
-            List<PsychologicalTestResultEntity> imageResults = psychologicalImageResultRepository.findByUserIdOrderByCreatedAtDesc(userId);
+            // ✨ [수정] 통합된 리포지토리(psychologicalTestResultRepository)를 사용하도록 변경
+            List<PsychologicalTestResultEntity> imageResults = psychologicalTestResultRepository.findByUserIdOrderByCreatedAtDesc(userId);
             for (PsychologicalTestResultEntity result : imageResults) {
                 activities.add(ActivityDto.builder()
                         .activityType("PSYCHOLOGICAL_TEST")
@@ -173,15 +172,19 @@ public class UserActivityService {
                         .color("warning")
                         .build());
             }
-            
+
             // 척도 기반 심리검사
-            List<PsychologicalScaleResult> scaleResults = psychologicalScaleResultRepository.findByUser_UserIdOrderByCreatedAtDesc(userId);
-            for (PsychologicalScaleResult result : scaleResults) {
+            // ✨ [수정] 통합된 리포지토리(scaleAnalysisResultRepository)와 엔티티(ScaleAnalysisResultEntity)를 사용하도록 변경
+            List<ScaleAnalysisResultEntity> scaleResults = scaleAnalysisResultRepository.findByUser_UserIdOrderByCreatedAtDesc(userId);
+            for (ScaleAnalysisResultEntity result : scaleResults) {
                 activities.add(ActivityDto.builder()
                         .activityType("PSYCHOLOGICAL_TEST")
                         .title("심리검사 완료")
                         .description("척도 기반 심리검사")
-                        .activityDate(convertToLocalDateTime(result.getCreatedAt()))
+                        // ✨ [수정 전]
+                        // .activityDate(convertToLocalDateTime(result.getCreatedAt()))
+                        // ✨ [수정 후] 불필요한 메서드 호출 삭제
+                        .activityDate(result.getCreatedAt())
                         .status("완료")
                         .icon("fas fa-brain")
                         .color("warning")
@@ -190,7 +193,6 @@ public class UserActivityService {
         } catch (Exception e) {
             log.warn("심리검사 활동 조회 실패: userId={}", userId, e);
         }
-        
         return activities;
     }
     

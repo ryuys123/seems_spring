@@ -1,6 +1,6 @@
 package com.test.seems.test.controller;
 
-import com.test.seems.test.model.dto.PersonalitySubmissionDto;
+import com.test.seems.test.model.dto.PersonalitySubmission;
 import com.test.seems.test.model.dto.PersonalityTestResult;
 import com.test.seems.test.model.dto.TestQuestion;
 import com.test.seems.test.model.service.PersonalityService;
@@ -32,7 +32,7 @@ public class PersonalityController {
 
     @PostMapping("/submit")
     public ResponseEntity<PersonalityTestResult> submitPersonalityTest(
-            @RequestBody PersonalitySubmissionDto submissionDto
+            @RequestBody PersonalitySubmission submissionDto
     ) {
         try {
             log.info("POST /api/personality-test/submit 호출됨 - User: {}, 답변 {}개", submissionDto.getUserId(), submissionDto.getAnswers().size());

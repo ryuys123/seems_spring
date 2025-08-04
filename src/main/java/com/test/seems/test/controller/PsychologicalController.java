@@ -1,11 +1,10 @@
 package com.test.seems.test.controller;
 
-import com.test.seems.test.jpa.entity.PsychologicalScaleResult;
+import com.test.seems.counseling.model.dto.CounselingDto;
+import com.test.seems.counseling.model.service.CounselingService;
 import com.test.seems.test.model.dto.*;
 import com.test.seems.test.model.service.PersonalityService;
-import com.test.seems.counseling.model.service.CounselingService;
 import com.test.seems.test.model.service.PsychologyService;
-import com.test.seems.counseling.model.dto.CounselingDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -51,11 +50,13 @@ public class PsychologicalController {
         }
     }
 
+    // 수정 후
     @PostMapping("/scale")
-    public ResponseEntity<PsychologicalScaleResult> submitScaleTest(@RequestBody ScaleTestSubmissionDto submissionDto) {
+    public ResponseEntity<PsychologicalTestResultResponse> submitScaleTest(@RequestBody ScaleTestSubmission submissionDto) {
         try {
             log.info("POST /api/psychological-test/scale 호출됨. Category: {}, User: {}", submissionDto.getTestCategory(), submissionDto.getUserId());
-            PsychologicalScaleResult result = psychologyService.saveScaleTestResult(submissionDto);
+            // 서비스 계층은 이제 엔티티가 아닌 DTO를 반환해야 합니다.
+            PsychologicalTestResultResponse result = psychologyService.saveScaleTestResult(submissionDto);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("척도 검사 제출 처리 중 오류 발생", e);
@@ -130,15 +131,16 @@ public class PsychologicalController {
         return ResponseEntity.ok(result);
     }
 
-    @GetMapping("/integrated-results/{userId}")
-    public ResponseEntity<List<IntegratedAnalysisResultDto>> getIntegratedTestResults(@PathVariable String userId) {
+    // 개선 후 API 시그니처 예시
+    @GetMapping("/integrated-result/{userId}") // 단수형으로 변경
+    public ResponseEntity<IntegratedAnalysisResult> getIntegratedTestResult(@PathVariable String userId) {
         PersonalityTestResult latestPersonalityResult = personalityService.getPersonalityTestResult(userId).orElse(null);
         PsychologicalTestResultResponse latestImageResult = psychologyService.getLatestPsychologicalImageResult(userId).orElse(null);
         PsychologicalTestResultResponse latestDepressionResult = psychologyService.getLatestScaleResult(userId, "DEPRESSION_SCALE").orElse(null);
         PsychologicalTestResultResponse latestStressResult = psychologyService.getLatestScaleResult(userId, "STRESS_SCALE").orElse(null);
         CounselingDto.DetailResponse latestCounselingSummary = counselingService.getLatestCounselingHistoryDetail(userId).orElse(null);
 
-        IntegratedAnalysisResultDto integratedResults = IntegratedAnalysisResultDto.builder()
+        IntegratedAnalysisResult integratedResults = IntegratedAnalysisResult.builder()
                 .latestPersonalityResult(latestPersonalityResult)
                 .latestImageResult(latestImageResult)
                 .latestDepressionResult(latestDepressionResult)
@@ -146,6 +148,6 @@ public class PsychologicalController {
                 .latestCounselingSummary(latestCounselingSummary)
                 .build();
 
-        return ResponseEntity.ok(List.of(integratedResults));
+        return ResponseEntity.ok(integratedResults); // List로 감싸지 않고 바로 반환
     }
 }

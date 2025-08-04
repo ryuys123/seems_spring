@@ -10,6 +10,5 @@ import java.util.List;
 @Repository
 public interface PersonalityAnswerRepository extends JpaRepository<PersonalityEntity, Long> { // ⭐ 이름 변경
     List<PersonalityEntity> findByUserId(String userId);
-    // 특정 사용자의 특정 문항들의 답변을 가져올 때 (MBTI 계산을 위해)
-    // List<PersonalityEntity> findByUserIdAndQuestionIdIn(String userId, List<Long> questionIds); // userId 타입 일치 확인
+
 }

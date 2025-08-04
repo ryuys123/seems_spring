@@ -1,8 +1,12 @@
 package com.test.seems.test.model.service;
 
-import com.test.seems.test.jpa.entity.*;
+import com.test.seems.test.jpa.entity.PsychologicalTestResultEntity;
+import com.test.seems.test.jpa.entity.PsychologyEntity;
+import com.test.seems.test.jpa.entity.ScaleAnalysisResultEntity;
+import com.test.seems.test.jpa.entity.TestQuestionEntity;
 import com.test.seems.test.jpa.repository.*;
 import com.test.seems.test.model.dto.*;
+import com.test.seems.test.model.entity.ScaleTestAnswerEntity;
 import com.test.seems.user.exception.UserNotFoundException;
 import com.test.seems.user.jpa.entity.UserEntity;
 import com.test.seems.user.jpa.repository.UserRepository;
@@ -23,27 +27,28 @@ import java.util.stream.Collectors;
 @Service
 public class PsychologyService {
 
+    // 의존성은 올바르게 수정되었습니다. 이 부분은 그대로 유지합니다.
     private final CommonQuestionRepository commonQuestionRepository;
     private final PsychologicalImageAnswerRepository psychologicalImageAnswerRepository;
-    private final PsychologicalImageResultRepository psychologicalImageResultRepository;
-    private final PsychologicalScaleAnswerRepository psychologicalScaleAnswerRepository;
-    private final PsychologicalScaleResultRepository psychologicalScaleResultRepository;
+    private final PsychologicalTestResultRepository psychologicalTestResultRepository;
+    private final ScaleTestAnswerRepository scaleTestAnswerRepository;
+    private final ScaleAnalysisResultRepository scaleAnalysisResultRepository;
     private final UserRepository userRepository;
     private final WebClient pythonAiWebClient;
 
     @Autowired
     public PsychologyService(CommonQuestionRepository commonQuestionRepository,
                              PsychologicalImageAnswerRepository psychologicalImageAnswerRepository,
-                             PsychologicalImageResultRepository psychologicalImageResultRepository,
-                             PsychologicalScaleAnswerRepository psychologicalScaleAnswerRepository,
-                             PsychologicalScaleResultRepository psychologicalScaleResultRepository,
+                             PsychologicalTestResultRepository psychologicalTestResultRepository,
+                             ScaleTestAnswerRepository scaleTestAnswerRepository,
+                             ScaleAnalysisResultRepository scaleAnalysisResultRepository,
                              UserRepository userRepository,
                              WebClient pythonAiWebClient) {
         this.commonQuestionRepository = commonQuestionRepository;
         this.psychologicalImageAnswerRepository = psychologicalImageAnswerRepository;
-        this.psychologicalImageResultRepository = psychologicalImageResultRepository;
-        this.psychologicalScaleAnswerRepository = psychologicalScaleAnswerRepository;
-        this.psychologicalScaleResultRepository = psychologicalScaleResultRepository;
+        this.psychologicalTestResultRepository = psychologicalTestResultRepository;
+        this.scaleTestAnswerRepository = scaleTestAnswerRepository;
+        this.scaleAnalysisResultRepository = scaleAnalysisResultRepository;
         this.userRepository = userRepository;
         this.pythonAiWebClient = pythonAiWebClient;
     }
@@ -86,20 +91,6 @@ public class PsychologyService {
         return questions.stream()
                 .map(TestQuestionEntity::toDto)
                 .collect(Collectors.toList());
-    }
-
-    @Transactional(readOnly = true)
-    public TestQuestion getRandomImageQuestion() {
-        List<TestQuestionEntity> imageBasedQuestions = commonQuestionRepository.findByTestTypeAndCategory("PSYCHOLOGICAL_IMAGE", "IMAGE_BASED");
-
-        if (imageBasedQuestions.isEmpty()) {
-            return null;
-        }
-
-        Random random = new Random();
-        TestQuestionEntity randomQuestionEntity = imageBasedQuestions.get(random.nextInt(imageBasedQuestions.size()));
-
-        return randomQuestionEntity.toDto();
     }
 
     @Transactional
@@ -183,28 +174,31 @@ public class PsychologyService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        psychologicalImageResultRepository.save(resultEntity);
+        // ✨ [재수정] 이전에 삭제된 리포지토리 변수명(psychologicalImageResultRepository)이 남아있던 오류 수정
+        psychologicalTestResultRepository.save(resultEntity);
 
         return resultEntity.toDto();
     }
 
     @Transactional
-    public PsychologicalScaleResult saveScaleTestResult(ScaleTestSubmissionDto submissionDto) {
+    public PsychologicalTestResultResponse saveScaleTestResult(ScaleTestSubmission submissionDto) {
         UserEntity user = userRepository.findById(submissionDto.getUserId())
                 .orElseThrow(() -> new UserNotFoundException("User not found with id: " + submissionDto.getUserId()));
 
-        for (ScaleAnswerDto answerDto : submissionDto.getAnswers()) {
-            PsychologicalScaleAnswer answer = new PsychologicalScaleAnswer();
-            answer.setUser(user);
-            answer.setQuestionId(answerDto.getQuestionId());
-            answer.setAnswerValue(answerDto.getAnswerValue());
-            answer.setTestCategory(submissionDto.getTestCategory());
-            answer.setTestType("PSYCHOLOGICAL_SCALE");
-            psychologicalScaleAnswerRepository.save(answer);
+        // ✨ [수정] 삭제된 PsychologicalScaleAnswer 대신 ScaleTestAnswerEntity 사용
+        for (ScaleAnswer answerDto : submissionDto.getAnswers()) {
+            ScaleTestAnswerEntity answer = ScaleTestAnswerEntity.builder()
+                    .userId(user.getUserId())
+                    .questionId(answerDto.getQuestionId())
+                    .answerValue(answerDto.getAnswerValue())
+                    .testCategory(submissionDto.getTestCategory())
+                    .testType("PSYCHOLOGICAL_SCALE")
+                    .build();
+            scaleTestAnswerRepository.save(answer); // ✨ 수정된 리포지토리 사용
         }
 
         double totalScore = submissionDto.getAnswers().stream()
-                .mapToDouble(ScaleAnswerDto::getAnswerValue)
+                .mapToDouble(ScaleAnswer::getAnswerValue)
                 .sum();
 
         String interpretation;
@@ -253,16 +247,20 @@ public class PsychologyService {
             suggestions = "관리자에게 문의하세요.";
         }
 
-        PsychologicalScaleResult result = new PsychologicalScaleResult();
-        result.setUser(user);
-        result.setTestCategory(submissionDto.getTestCategory());
-        result.setTotalScore(totalScore);
-        result.setInterpretation(interpretation);
-        result.setRiskLevel(riskLevel);
-        result.setSuggestions(suggestions);
-        result.setTestType("PSYCHOLOGICAL_SCALE");
+        // ✨ [수정] 삭제된 PsychologicalScaleResult 대신 ScaleAnalysisResultEntity 사용
+        ScaleAnalysisResultEntity resultEntity = new ScaleAnalysisResultEntity();
+        resultEntity.setUser(user);
+        resultEntity.setTestCategory(submissionDto.getTestCategory());
+        resultEntity.setTotalScore(totalScore);
+        resultEntity.setInterpretation(interpretation);
+        resultEntity.setRiskLevel(riskLevel);
+        resultEntity.setSuggestions(suggestions);
+        resultEntity.setTestType("PSYCHOLOGICAL_SCALE");
 
-        return psychologicalScaleResultRepository.save(result);
+        ScaleAnalysisResultEntity savedResult = scaleAnalysisResultRepository.save(resultEntity); // ✨ 수정된 리포지토리 사용
+
+        // ✨ [수정] 엔티티가 아닌 DTO를 반환 (Controller와 약속)
+        return savedResult.toDto();
     }
 
     @Transactional(readOnly = true)
@@ -275,15 +273,17 @@ public class PsychologyService {
         switch (testType) {
             case "IMAGE_TEST":
             case "PSYCHOLOGICAL_IMAGE":
-                return psychologicalImageResultRepository.findById(resultId)
+                // ✨ [재수정] 삭제된 리포지토리(psychologicalImageResultRepository) 호출 오류 수정
+                return psychologicalTestResultRepository.findById(resultId)
                         .map(PsychologicalTestResultEntity::toDto)
                         .orElseThrow(() -> new RuntimeException("이미지 심리 검사 결과를 찾을 수 없습니다. (ID: " + resultId + ")"));
 
             case "DEPRESSION_SCALE":
             case "PSYCHOLOGICAL_SCALE":
             case "STRESS_SCALE":
-                return psychologicalScaleResultRepository.findById(resultId)
-                        .map(PsychologicalScaleResult::toDto)
+                // ✨ [재수정] 삭제된 리포지토리(psychologicalScaleResultRepository) 및 엔티티(PsychologicalScaleResult) 호출 오류 수정
+                return scaleAnalysisResultRepository.findById(resultId)
+                        .map(ScaleAnalysisResultEntity::toDto)
                         .orElseThrow(() -> new RuntimeException(testType + " 척도 검사 결과를 찾을 수 없습니다. (ID: " + resultId + ")"));
 
             default:
@@ -294,13 +294,16 @@ public class PsychologyService {
 
     @Transactional(readOnly = true)
     public PsychologicalTestResultResponse getLatestPsychologicalTestResultByUserId(String userId) {
-        Optional<PsychologicalTestResultEntity> latestImageResult = psychologicalImageResultRepository.findTop1ByUserIdOrderByCreatedAtDesc(userId);
-        Optional<PsychologicalScaleResult> latestScaleResult = psychologicalScaleResultRepository.findTopByUser_UserIdOrderByCreatedAtDesc(userId);
+        // ✨ [재수정] 삭제된 리포지토리(psychologicalImageResultRepository) 호출 오류 수정
+        Optional<PsychologicalTestResultEntity> latestImageResult = psychologicalTestResultRepository.findTopByUserIdOrderByCreatedAtDesc(userId);
+        // ✨ [재수정] 삭제된 리포지토리(psychologicalScaleResultRepository) 및 엔티티(PsychologicalScaleResult) 호출 오류 수정
+        Optional<ScaleAnalysisResultEntity> latestScaleResult = scaleAnalysisResultRepository.findTopByUser_UserIdOrderByCreatedAtDesc(userId);
 
         PsychologicalTestResultResponse result = null;
 
         if (latestImageResult.isPresent() && latestScaleResult.isPresent()) {
-            if (latestImageResult.get().getCreatedAt().isAfter(latestScaleResult.get().getCreatedAt().toLocalDateTime())) {
+            // ✨ [수정 후] .toLocalDateTime() 제거
+            if (latestImageResult.get().getCreatedAt().isAfter(latestScaleResult.get().getCreatedAt())) {
                 result = latestImageResult.get().toDto();
             } else {
                 result = latestScaleResult.get().toDto();
@@ -315,13 +318,15 @@ public class PsychologyService {
 
     @Transactional(readOnly = true)
     public Optional<PsychologicalTestResultResponse> getLatestPsychologicalImageResult(String userId) {
-        return psychologicalImageResultRepository.findTop1ByUserIdOrderByCreatedAtDesc(userId)
+        // ✨ [재수정] 삭제된 리포지토리(psychologicalImageResultRepository) 호출 오류 수정
+        return psychologicalTestResultRepository.findTopByUserIdOrderByCreatedAtDesc(userId)
                 .map(PsychologicalTestResultEntity::toDto);
     }
 
     @Transactional(readOnly = true)
     public Optional<PsychologicalTestResultResponse> getLatestScaleResult(String userId, String testCategory) {
-        return psychologicalScaleResultRepository.findTopByUser_UserIdAndTestCategoryOrderByCreatedAtDesc(userId, testCategory)
-                .map(PsychologicalScaleResult::toDto);
+        // ✨ [재수정] 삭제된 리포지토리(psychologicalScaleResultRepository) 및 엔티티(PsychologicalScaleResult) 호출 오류 수정
+        return scaleAnalysisResultRepository.findTopByUser_UserIdAndTestCategoryOrderByCreatedAtDesc(userId, testCategory)
+                .map(ScaleAnalysisResultEntity::toDto);
     }
 }

@@ -9,7 +9,6 @@ import com.test.seems.simulation.jpa.repository.SimulationSettingRepository;
 import com.test.seems.simulation.jpa.repository.SimulationUserResultRepository;
 import com.test.seems.simulation.model.dto.SimulationQuestion;
 import com.test.seems.simulation.model.dto.SimulationResult;
-import com.test.seems.simulation.model.dto.SimulationResultDetails;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -285,21 +284,11 @@ public class SimulationService {
      * @param settingId 조회할 시뮬레이션 설정 ID
      * @return 시뮬레이션 결과 상세 DTO (존재하지 않으면 Optional.empty())
      */
-    @Transactional(readOnly = true)
-    public Optional<SimulationResultDetails> getSimulationResultDetails(Long settingId) {
+    // ✨ [수정 후] 반환 타입을 SimulationResult로 변경하고, toDto() 메서드를 사용하여 코드를 간결하게 만듭니다.
+    public Optional<SimulationResult> getSimulationResultDetails(Long settingId) {
         log.info("Fetching simulation result details for settingId: {}", settingId);
-        Optional<SimulationUserResultEntity> userResultEntityOptional = userResultRepository.findBySettingId(settingId);
-
-        return userResultEntityOptional.map(userResultEntity -> {
-            return new SimulationResultDetails(
-                    userResultEntity.getResultTitle(),
-                    userResultEntity.getResultSummary(),
-                    userResultEntity.getPositiveContributionFactors(),
-                    userResultEntity.getInitialStressScore(),
-                    userResultEntity.getEstimatedFinalStressScore(),
-                    userResultEntity.getInitialDepressionScore(),
-                    userResultEntity.getEstimatedFinalDepressionScore()
-            );
-        });
+        return userResultRepository.findBySettingId(settingId)
+                .map(SimulationUserResultEntity::toDto);
     }
+
 }

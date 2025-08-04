@@ -3,18 +3,18 @@
 package com.test.seems.simulation.model.dto;
 
 import lombok.Builder;
-import lombok.Getter;
+import lombok.Data;
+
 import java.time.LocalDateTime;
 
-@Getter
+@Data
 @Builder
 public class SimulationResult {
     private Long userResultId;
     private Long settingId;
     private String resultTitle;
     private String resultSummary;
-    // ✨ 삭제할 필드
-    // private String personalityType;
+
 
     // ✨ 새로 추가할 필드들 ✨
     private Integer initialStressScore;

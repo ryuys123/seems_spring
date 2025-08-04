@@ -19,7 +19,7 @@ public class SimulationQuestion {
     private String questionText;
     private Boolean isSimulationEnded;
     private List<ChoiceOption> options;
-    // private String finalResultPersonalityType; // ❌ 이 필드는 제거됩니다.
+
 
     /**
      * 개별 선택지 하나의 정보를 담는 static 내부 클래스입니다.
@@ -32,14 +32,7 @@ public class SimulationQuestion {
         private String text;
         private String trait; // ✅ 이 필드가 다시 포함됩니다.
         private Integer nextQuestionNumber;
-        // private String resultPersonalityType; // ❌ 이 필드는 제거됩니다.
     }
 
-    /**
-     * 데이터베이스의 JSON 문자열을 파싱하기 위한 헬퍼(helper) 클래스입니다.
-     */
-    @Data
-    public static class JsonOptions {
-        private List<ChoiceOption> options;
-    }
+
 }

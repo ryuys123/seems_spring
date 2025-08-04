@@ -66,13 +66,6 @@ public class AiGenerationService {
      * @param summary 사용자의 종합 분석 요약 엔티티
      * @return 생성된 프롬프트 문자열
      */
-    // @Deprecated // 이 메서드는 더 이상 사용되지 않음
-    private String createPromptFromSummary(UserAnalysisSummaryEntity summary) {
-        // 이 메서드는 이제 사용되지 않습니다.
-        // Python API가 직접 데이터를 받아 프롬프트를 구성하도록 변경되었습니다.
-        return ""; // 또는 UnsupportedOperationException을 던질 수도 있습니다.
-    }
-
 
     /**
      * 시뮬레이션의 다음 질문 생성을 위해 AI 서버에 요청합니다.

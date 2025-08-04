@@ -2,7 +2,7 @@ package com.test.seems.simulation.controller;
 
 import com.test.seems.simulation.model.dto.SimulationQuestion;
 import com.test.seems.simulation.model.dto.SimulationResult;
-import com.test.seems.simulation.model.dto.SimulationResultDetails; // ✅ SimulationResultDetails DTO 임포트
+
 import com.test.seems.simulation.model.service.SimulationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -130,17 +130,16 @@ public class SimulationController {
      * 특정 settingId에 해당하는 시뮬레이션 상세 결과를 조회합니다.
      * 이 API는 SimulationResultPage에서 호출합니다.
      * @param settingId 조회할 시뮬레이션 설정 ID
-     * @return SimulationResultDetails DTO 또는 404 Not Found
+     * @return SimulationResult DTO 또는 404 Not Found  // ✨ [수정] 반환 타입 설명 변경
      */
     @GetMapping("/result-details/{settingId}")
-    public ResponseEntity<SimulationResultDetails> getSimulationResultDetails(@PathVariable Long settingId) {
+    public ResponseEntity<SimulationResult> getSimulationResultDetails(@PathVariable Long settingId) {
         System.out.println("백엔드에서 getSimulationResultDetails 호출됨, settingId: " + settingId);
 
-        // ✅ 이 부분을 수정하여 실제 서비스 로직을 호출하고,
-        // SimulationResultDetails 객체를 DB에서 조회하여 반환하도록 변경해야 합니다.
-        Optional<SimulationResultDetails> resultDetails = simulationService.getSimulationResultDetails(settingId);
+        // 서비스 계층은 이제 Optional<SimulationResult>를 반환합니다.
+        Optional<SimulationResult> result = simulationService.getSimulationResultDetails(settingId);
 
-        return resultDetails.map(ResponseEntity::ok)
+        return result.map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }

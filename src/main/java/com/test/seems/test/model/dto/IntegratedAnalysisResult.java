@@ -6,7 +6,7 @@ import lombok.Data;
 
 @Data
 @Builder
-public class IntegratedAnalysisResultDto {
+public class IntegratedAnalysisResult {
     private PersonalityTestResult latestPersonalityResult;
     private PsychologicalTestResultResponse latestImageResult;
     private PsychologicalTestResultResponse latestDepressionResult;
