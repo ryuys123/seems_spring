@@ -29,6 +29,8 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.ModelAndView;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.io.File;
 import java.sql.Date;
@@ -373,12 +375,18 @@ public class UserController {
             @RequestParam(value = "userPwd", required = false) String userPwd,
             @RequestParam(value = "email", required = false) String email,
             @RequestParam(name="profileImage", required = false) MultipartFile ufile,
+            @RequestParam(value = "profileImageBase64", required = false) String profileImageBase64,
             @RequestParam(value = "socialId", required = false) String socialId,
             @RequestParam(value = "socialProvider", required = false) String socialProvider) {
         
         try {
             log.info("회원가입 요청 시작 - userId: {}, userName: {}, phone: {}, socialId: {}, socialProvider: {}", 
                     userId, userName, phone, socialId, socialProvider);
+            log.info("profileImageBase64 파라미터 확인: {}", profileImageBase64 != null ? "존재함" : "null");
+            if (profileImageBase64 != null) {
+                log.info("profileImageBase64 길이: {}", profileImageBase64.length());
+                log.info("profileImageBase64 시작 부분: {}", profileImageBase64.substring(0, Math.min(50, profileImageBase64.length())));
+            }
             
             // FormData 방식으로 받은 경우만 처리
             User user = User.builder()
@@ -403,29 +411,62 @@ public class UserController {
                 directory.mkdirs();
             }
 
-            // 사진 첨부파일이 있다면
+            // 프로필 이미지 처리 (MultipartFile 또는 Base64 문자열)
             if (ufile != null && !ufile.isEmpty()) {
-                // 전송온 파일 이름 추출함
+                // MultipartFile로 전송된 경우
                 String fileName = ufile.getOriginalFilename();
-                // 여러 회원이 업로드한 사진파일명이 중복될 경우를 대비해서 저장파일명 이름바꾸기함
-                // 바꿀 파일이름은 개발자가 정함
-                // userId 가 기본키이므로 중복이 안됨 => userId_filename 저장형태로 정해봄
                 String renameFileName = user.getUserId() + "_" + fileName;
 
                 if (fileName != null && fileName.length() > 0) {
                     try {
-                        // 저장시 바뀐 이름으로 저장 처리함
                         ufile.transferTo(new File(savePath, renameFileName));
-                        // 파일 업로드 정상 처리되었다면
-                        user.setProfileImage(renameFileName); // db 저장시에는 변경된 이름으로 기록함
-                        log.info("프로필 이미지 업로드 성공: {}", renameFileName);
+                        user.setProfileImage(renameFileName);
+                        log.info("프로필 이미지 업로드 성공 (MultipartFile): {}", renameFileName);
                     } catch (Exception e) {
-                        // 첨부파일 저장시 에러 발생
                         log.error("프로필 이미지 업로드 실패", e);
                         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("프로필 이미지 업로드에 실패했습니다.");
                     }
                 }
-            } // 첨부파일이 있을 때
+            } else {
+                // Base64 문자열로 전송된 경우 처리
+                if (profileImageBase64 != null && !profileImageBase64.isEmpty() && 
+                    (profileImageBase64.startsWith("data:image/") || profileImageBase64.startsWith("data:application/"))) {
+                    
+                    log.info("Base64 프로필 이미지 처리 시작");
+                    
+                    try {
+                        // Base64 데이터에서 실제 이미지 데이터 추출
+                        String base64Data = profileImageBase64;
+                        if (profileImageBase64.contains(",")) {
+                            base64Data = profileImageBase64.split(",")[1];
+                        }
+                        
+                        // Base64 디코딩
+                        byte[] imageBytes = java.util.Base64.getDecoder().decode(base64Data);
+                        
+                        // 파일 확장자 결정
+                        String fileExtension = ".jpg"; // 기본값
+                        if (profileImageBase64.contains("data:image/png")) {
+                            fileExtension = ".png";
+                        } else if (profileImageBase64.contains("data:image/gif")) {
+                            fileExtension = ".gif";
+                        }
+                        
+                        // 파일명 생성
+                        String renameFileName = user.getUserId() + "_profile" + fileExtension;
+                        
+                        // 파일 저장
+                        File imageFile = new File(savePath, renameFileName);
+                        java.nio.file.Files.write(imageFile.toPath(), imageBytes);
+                        
+                        user.setProfileImage(renameFileName);
+                        log.info("프로필 이미지 업로드 성공 (Base64): {}", renameFileName);
+                    } catch (Exception e) {
+                        log.error("Base64 프로필 이미지 처리 실패", e);
+                        // Base64 처리 실패해도 회원가입은 계속 진행
+                    }
+                }
+            }
 
             //가입정보 추가 입력 처리
             user.setStatus(1);
